@@ -293,7 +293,8 @@ export default function LandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           2. SECTION 1: AI TALENT DISCOVERY RADAR (5-Pillar Architecture)
           ───────────────────────────────────────────────────────────── */}
-      <section id="ai-discovery" className="w-full border-y border-slate-200/80 dark:border-white/[0.08] bg-slate-100/40 dark:bg-[#0D1017]/50 py-24">
+      <section id="matching-engine" className="scroll-mt-24 w-full border-y border-slate-200/80 dark:border-white/[0.08] bg-slate-100/40 dark:bg-[#0D1017]/50 py-24 relative">
+        <span id="ai-discovery" className="scroll-mt-24 absolute -top-24" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center space-y-4 mb-16">
             <span className="text-xs font-mono font-bold tracking-widest uppercase text-violet-600 dark:text-violet-400">
@@ -438,7 +439,8 @@ export default function LandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           3. SECTION 2: SKILL INTELLIGENCE & TAXONOMY ONTOLOGY
           ───────────────────────────────────────────────────────────── */}
-      <section id="skill-intelligence" className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+      <section id="skill-taxonomy" className="scroll-mt-24 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative">
+        <span id="skill-intelligence" className="scroll-mt-24 absolute -top-24" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
           <div className="lg:col-span-5 space-y-6">
@@ -540,7 +542,7 @@ export default function LandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           4. SECTION 3: DEVELOPER IDENTITY SHOWCASE
           ───────────────────────────────────────────────────────────── */}
-      <section id="developer-identity" className="w-full border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-100/30 dark:bg-[#0A0D14] py-24">
+      <section id="developer-identity" className="scroll-mt-24 w-full border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-100/30 dark:bg-[#0A0D14] py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center space-y-4 mb-16">
             <span className="text-xs font-mono font-bold tracking-widest uppercase text-violet-600 dark:text-violet-400">
@@ -626,7 +628,8 @@ export default function LandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           5. SECTION 4: TEAM COLLABORATION & COLLECTIVE MATRIX
           ───────────────────────────────────────────────────────────── */}
-      <section id="teams" className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+      <section id="team-collective" className="scroll-mt-24 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 relative">
+        <span id="teams" className="scroll-mt-24 absolute -top-24" />
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
           <div className="lg:col-span-6 space-y-6">
@@ -747,7 +750,8 @@ export default function LandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           6. SECTION 5: RECRUITMENT INTELLIGENCE WORKFLOW
           ───────────────────────────────────────────────────────────── */}
-      <section id="workflow" className="w-full border-y border-slate-200/80 dark:border-white/[0.08] bg-slate-100/40 dark:bg-[#08090E] py-24">
+      <section id="recruiter-workflow" className="scroll-mt-24 w-full border-y border-slate-200/80 dark:border-white/[0.08] bg-slate-100/40 dark:bg-[#08090E] py-24 relative">
+        <span id="workflow" className="scroll-mt-24 absolute -top-24" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center space-y-4 mb-16">
             <span className="text-xs font-mono font-bold tracking-widest uppercase text-cyan-600 dark:text-cyan-400">
@@ -940,7 +944,7 @@ export default function LandingPage() {
       {/* ─────────────────────────────────────────────────────────────
           8. SECTION 7: TRUST, SECURITY & FAQ
           ───────────────────────────────────────────────────────────── */}
-      <section className="w-full border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-100/30 dark:bg-[#0A0D14] py-24">
+      <section id="faq" className="scroll-mt-24 w-full border-t border-slate-200/80 dark:border-white/[0.08] bg-slate-100/30 dark:bg-[#0A0D14] py-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           
           <div className="text-center space-y-3">

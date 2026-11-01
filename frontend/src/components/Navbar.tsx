@@ -45,6 +45,29 @@ export function Navbar() {
     return "/talent";
   };
 
+  const handleNavScroll = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+    if (pathname === "/") {
+      e.preventDefault();
+      const element = document.getElementById(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+        window.history.pushState(null, "", `#${targetId}`);
+      }
+    }
+  };
+
+  const handleMobileNavScroll = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+    setMobileMenuOpen(false);
+    if (pathname === "/") {
+      e.preventDefault();
+      const element = document.getElementById(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth" });
+        window.history.pushState(null, "", `#${targetId}`);
+      }
+    }
+  };
+
   return (
     <nav
       className={`sticky top-0 z-50 w-full transition-all duration-300 ${
@@ -96,6 +119,12 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-1 p-1 rounded-full border border-slate-200/80 dark:border-white/[0.07] bg-slate-100/40 dark:bg-white/[0.02]">
             <Link
               href="/"
+              onClick={(e) => {
+                if (pathname === "/") {
+                  e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+              }}
               className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
                 pathname === "/"
                   ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm font-semibold"
@@ -106,6 +135,7 @@ export function Navbar() {
             </Link>
             <Link
               href="/#matching-engine"
+              onClick={(e) => handleNavScroll(e, "matching-engine")}
               className="px-3.5 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all flex items-center gap-1"
             >
               <Sparkles size={12} className="text-cyan-500" />
@@ -113,18 +143,21 @@ export function Navbar() {
             </Link>
             <Link
               href="/#skill-taxonomy"
+              onClick={(e) => handleNavScroll(e, "skill-taxonomy")}
               className="px-3.5 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
             >
               Taxonomy
             </Link>
             <Link
               href="/#team-collective"
+              onClick={(e) => handleNavScroll(e, "team-collective")}
               className="px-3.5 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
             >
               Teams
             </Link>
             <Link
               href="/#recruiter-workflow"
+              onClick={(e) => handleNavScroll(e, "recruiter-workflow")}
               className="px-3.5 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
             >
               Recruiters
@@ -134,7 +167,7 @@ export function Navbar() {
           {/* Action Area & Controls */}
           <div className="hidden md:flex items-center gap-3">
             <ThemeToggle />
-            <NotificationBell />
+            {user && <NotificationBell />}
 
             {user ? (
               <div className="flex items-center gap-3 ml-1">
@@ -244,31 +277,44 @@ export function Navbar() {
         <div className="md:hidden surface-elevated border-t border-slate-200 dark:border-white/10 px-5 pt-4 pb-6 space-y-3 animate-in slide-in-from-top-4 duration-200">
           <Link
             href="/"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={(e) => {
+              setMobileMenuOpen(false);
+              if (pathname === "/") {
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }
+            }}
             className="block px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200"
           >
             Platform Intelligence
           </Link>
           <Link
             href="/#matching-engine"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={(e) => handleMobileNavScroll(e, "matching-engine")}
             className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400"
           >
             5-Pillar Matching Engine
           </Link>
           <Link
             href="/#skill-taxonomy"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={(e) => handleMobileNavScroll(e, "skill-taxonomy")}
             className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400"
           >
             Skill Taxonomy
           </Link>
           <Link
             href="/#team-collective"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={(e) => handleMobileNavScroll(e, "team-collective")}
             className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400"
           >
             Team Collaboration Matrix
+          </Link>
+          <Link
+            href="/#recruiter-workflow"
+            onClick={(e) => handleMobileNavScroll(e, "recruiter-workflow")}
+            className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400"
+          >
+            Recruiter Workflow
           </Link>
 
           <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex flex-col gap-2">

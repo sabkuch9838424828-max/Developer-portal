@@ -17,27 +17,28 @@ interface NotificationItem {
 }
 
 export function NotificationBell() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchNotifications = async () => {
-    if (!user) return;
+    if (!user || !token) return;
     try {
       const data = await apiRequest<NotificationItem[]>("/notifications");
-      setNotifications(data);
-      setUnreadCount(data.filter((n) => !n.is_read).length);
+      setNotifications(data || []);
+      setUnreadCount((data || []).filter((n) => !n.is_read).length);
     } catch {
       // ignore
     }
   };
 
   useEffect(() => {
+    if (!user || !token) return;
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000);
+    const interval = setInterval(fetchNotifications, 20000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, token]);
 
   const markAsRead = async (id: number) => {
     try {
@@ -61,7 +62,7 @@ export function NotificationBell() {
     }
   };
 
-  if (!user) return null;
+  if (!user || !token) return null;
 
   return (
     <div className="relative">
