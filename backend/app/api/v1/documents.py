@@ -60,7 +60,7 @@ async def upload_document(
 
     # Extract text from document using Document Intelligence
     try:
-        raw_text, doc_class = DocumentIntelligenceService.process_document(file_path, doc.mime_type)
+        raw_text, doc_class, ocr_applied = DocumentIntelligenceService.process_document(file_path, doc.mime_type)
         
         # Analyze with AI
         orchestrator = AIOrchestrator()
@@ -131,4 +131,38 @@ def get_document(
         "mime_type": doc.mime_type,
         "extractions": extractions,
         "created_at": doc.created_at
+    }
+
+@router.post("/{document_id}/approve")
+def approve_document_extraction(
+    document_id: int,
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    doc = db.query(UploadedDocument).filter(
+        UploadedDocument.id == document_id,
+        UploadedDocument.user_id == current_user.id
+    ).first()
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    extraction = doc.extractions[0] if doc.extractions else None
+    if not extraction:
+        raise HTTPException(status_code=404, detail="No extraction found for document")
+
+    # Update structured data with approved/edited fields
+    if "approved_data" in payload:
+        extraction.structured_data = payload["approved_data"]
+    extraction.approved_by_user = True
+    extraction.review_required = False
+    doc.status = "completed"
+    db.commit()
+
+    return {
+        "success": True,
+        "document_id": doc.id,
+        "status": doc.status,
+        "approved_data": extraction.structured_data
     }

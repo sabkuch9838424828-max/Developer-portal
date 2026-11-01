@@ -57,11 +57,22 @@ class NotificationOrchestrator:
                 for p in talent.projects
             ]
 
+            # Extract active resume evidence if present
+            resume_evidence = {}
+            active_resume = next((r for r in talent.resumes if r.is_active and r.status in ["completed", "review_required"]), None)
+            if active_resume and active_resume.extractions:
+                latest_ext = active_resume.extractions[0]
+                for sk in latest_ext.skills or []:
+                    c_name = sk.get("canonical_name")
+                    if c_name:
+                        resume_evidence[c_name] = sk
+
             talent_data = {
                 "skills": talent_skills,
                 "projects": talent_projects,
                 "experience_years": talent.experience_years,
-                "remote_preference": talent.remote_preference or "Remote"
+                "remote_preference": talent.remote_preference or "Remote",
+                "resume_evidence": resume_evidence
             }
 
             match_result = matcher.calculate_match(

@@ -1,6 +1,8 @@
-from typing import List, Optional
+import os
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_recruiter
 from app.models.user import User
@@ -10,8 +12,10 @@ from app.models.skill import Skill
 from app.models.match import JobMatch
 from app.models.application import Application, Invitation
 from app.models.talent import TalentProfile
+from app.models.resume import Resume, ResumeExtraction, ResumeAccessLog
 from app.models.ai_log import AuditLog
 from app.ai.services.skill_normalizer import SkillNormalizerService
+from app.services.resume_service import ResumeIntelligenceService
 from app.notifications.orchestrator import NotificationOrchestrator
 from app.schemas.recruiter import (
     CompanyUpdate, CompanyResponse, RecruiterDashboardStats,
@@ -345,6 +349,14 @@ def get_job_candidate_matches(
 
         skills = [ps.skill.canonical_name for ps in t_prof.profile_skills]
 
+        # Active resume information
+        active_resume = next((r for r in t_prof.resumes if r.is_active), None)
+        has_resume = active_resume is not None
+        resume_id = active_resume.id if active_resume else None
+        resume_visibility = active_resume.visibility if active_resume else None
+        resume_filename = active_resume.original_filename if active_resume else None
+        evidence_count = len(active_resume.extractions[0].skills) if active_resume and active_resume.extractions and active_resume.extractions[0].skills else 0
+
         results.append(CandidateMatchCard(
             match_id=m.id,
             talent_profile_id=t_prof.id,
@@ -368,9 +380,220 @@ def get_job_candidate_matches(
             skills=skills,
             has_applied=app is not None,
             has_invitation=inv is not None,
-            application_status=app.status if app else None
+            application_status=app.status if app else None,
+            has_resume=has_resume,
+            resume_id=resume_id,
+            resume_visibility=resume_visibility,
+            resume_filename=resume_filename,
+            evidence_count=evidence_count
         ))
     return results
+
+@router.get("/jobs/{job_id}/candidate-matches", response_model=List[CandidateMatchCard])
+def get_job_candidate_matches_alias(
+    job_id: int,
+    current_user: User = Depends(require_recruiter),
+    db: Session = Depends(get_db)
+):
+    return get_job_candidate_matches(job_id=job_id, current_user=current_user, db=db)
+
+@router.get("/jobs/{job_id}/candidate-matches/{candidate_id}/evidence")
+def get_candidate_match_evidence(
+    job_id: int,
+    candidate_id: int,
+    current_user: User = Depends(require_recruiter),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.recruiter_profile
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == profile.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    candidate = db.query(TalentProfile).filter(TalentProfile.id == candidate_id).first()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    match = db.query(JobMatch).filter(JobMatch.job_id == job.id, JobMatch.talent_profile_id == candidate.id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Candidate match record not found.")
+
+    # Find active resume & extraction evidence
+    active_resume = next((r for r in candidate.resumes if r.is_active), None)
+    resume_skills_map = {}
+    if active_resume and active_resume.extractions:
+        for sk in active_resume.extractions[0].skills or []:
+            c_name = sk.get("canonical_name")
+            if c_name:
+                resume_skills_map[c_name] = sk
+
+    # Construct verified evidence list
+    mandatory_evidence = []
+    for m_skill in match.matched_mandatory_skills or []:
+        clean_name = m_skill.replace(" (via related)", "")
+        ev_item = resume_skills_map.get(clean_name, {})
+        mandatory_evidence.append({
+            "skill": m_skill,
+            "evidence": ev_item.get("evidence") or f"Demonstrated in verified candidate skill inventory.",
+            "context": ev_item.get("associated_context") or "Profile & Portfolio",
+            "confidence": ev_item.get("confidence", 0.95),
+            "is_resume_verified": clean_name in resume_skills_map
+        })
+
+    preferred_evidence = []
+    for p_skill in match.matched_preferred_skills or []:
+        clean_name = p_skill.replace(" (via related)", "")
+        ev_item = resume_skills_map.get(clean_name, {})
+        preferred_evidence.append({
+            "skill": p_skill,
+            "evidence": ev_item.get("evidence") or f"Demonstrated in verified candidate profile.",
+            "context": ev_item.get("associated_context") or "Profile & Portfolio",
+            "confidence": ev_item.get("confidence", 0.95),
+            "is_resume_verified": clean_name in resume_skills_map
+        })
+
+    # Can recruiter download/view full resume?
+    can_download_resume = False
+    resume_access_reason = "No active resume uploaded."
+    if active_resume:
+        can_download_resume, resume_access_reason = ResumeIntelligenceService.can_recruiter_access_resume(
+            active_resume, current_user, db
+        )
+
+    return {
+        "candidate_id": candidate.id,
+        "candidate_name": candidate.name,
+        "headline": candidate.headline,
+        "match_score": match.match_score,
+        "eligibility": match.eligibility,
+        "explanation": match.explanation,
+        "score_breakdown": match.score_breakdown or {},
+        "mandatory_evidence": mandatory_evidence,
+        "preferred_evidence": preferred_evidence,
+        "missing_mandatory": match.missing_mandatory_skills or [],
+        "missing_preferred": match.missing_preferred_skills or [],
+        "relevant_projects": match.relevant_projects or [],
+        "experience_years": candidate.experience_years,
+        "education": candidate.education,
+        "has_resume": active_resume is not None,
+        "resume_id": active_resume.id if active_resume else None,
+        "can_download_resume": can_download_resume,
+        "resume_access_reason": resume_access_reason,
+        "disclaimer": "NEXORA match compatibility indicates engineering qualification grounded in verified evidence. Protected personal characteristics are not used in ranking."
+    }
+
+@router.get("/candidates/{candidate_id}/resume")
+def download_candidate_resume(
+    candidate_id: int,
+    current_user: User = Depends(require_recruiter),
+    db: Session = Depends(get_db)
+):
+    candidate = db.query(TalentProfile).filter(TalentProfile.id == candidate_id).first()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    active_resume = next((r for r in candidate.resumes if r.is_active), None)
+    if not active_resume:
+        raise HTTPException(status_code=404, detail="Candidate has not uploaded a resume.")
+
+    # Enforce strict visibility permissions
+    can_access, reason = ResumeIntelligenceService.can_recruiter_access_resume(active_resume, current_user, db)
+    if not can_access:
+        raise HTTPException(status_code=403, detail=f"Resume access denied: {reason}")
+
+    if not os.path.exists(active_resume.file_path):
+        raise HTTPException(status_code=404, detail="Resume file not found on storage server.")
+
+    # Audit log
+    ResumeIntelligenceService.log_access(
+        active_resume.id,
+        current_user.id,
+        "download",
+        "recruiter",
+        db,
+        notes=f"Recruiter {current_user.id} accessed resume for candidate {candidate_id}"
+    )
+
+    return FileResponse(
+        path=active_resume.file_path,
+        filename=f"{candidate.name.replace(' ', '_')}_Resume_{active_resume.original_filename}",
+        media_type=active_resume.mime_type
+    )
+
+@router.post("/candidates/compare")
+def compare_candidates_for_job(
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(require_recruiter),
+    db: Session = Depends(get_db)
+):
+    job_id = payload.get("job_id")
+    candidate_ids = payload.get("candidate_ids", [])
+
+    if not job_id or not candidate_ids:
+        raise HTTPException(status_code=400, detail="job_id and candidate_ids list (at least 2) are required.")
+
+    profile = current_user.recruiter_profile
+    job = db.query(Job).filter(Job.id == job_id, Job.recruiter_id == profile.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    candidates = db.query(TalentProfile).filter(TalentProfile.id.in_(candidate_ids)).all()
+    if len(candidates) < 1:
+        raise HTTPException(status_code=404, detail="No matching candidates found.")
+
+    comparison_results = []
+    job_mandatory = [js.skill.name for js in job.skills if js.is_mandatory]
+    job_preferred = [js.skill.name for js in job.skills if not js.is_mandatory]
+
+    for cand in candidates:
+        match = db.query(JobMatch).filter(JobMatch.job_id == job.id, JobMatch.talent_profile_id == cand.id).first()
+        active_resume = next((r for r in cand.resumes if r.is_active), None)
+
+        resume_skills = []
+        if active_resume and active_resume.extractions:
+            resume_skills = [sk.get("canonical_name") for sk in active_resume.extractions[0].skills or []]
+
+        can_view_resume, access_note = (
+            ResumeIntelligenceService.can_recruiter_access_resume(active_resume, current_user, db)
+            if active_resume else (False, "No resume uploaded.")
+        )
+
+        comparison_results.append({
+            "candidate_id": cand.id,
+            "name": cand.name,
+            "headline": cand.headline,
+            "specialization": cand.specialization,
+            "experience_years": cand.experience_years,
+            "education": cand.education,
+            "location": cand.location,
+            "remote_preference": cand.remote_preference,
+            "match_score": match.match_score if match else 0.0,
+            "eligibility": match.eligibility if match else "unscored",
+            "score_breakdown": match.score_breakdown if match else {},
+            "matched_mandatory": match.matched_mandatory_skills if match else [],
+            "missing_mandatory": match.missing_mandatory_skills if match else [],
+            "matched_preferred": match.matched_preferred_skills if match else [],
+            "missing_preferred": match.missing_preferred_skills if match else [],
+            "mandatory_coverage_percent": round(len(match.matched_mandatory_skills or []) / max(1, len(job_mandatory)) * 100) if match else 0,
+            "preferred_coverage_percent": round(len(match.matched_preferred_skills or []) / max(1, len(job_preferred)) * 100) if match else 0,
+            "relevant_projects": match.relevant_projects if match else [],
+            "has_resume": active_resume is not None,
+            "resume_id": active_resume.id if active_resume else None,
+            "can_view_resume": can_view_resume,
+            "resume_access_note": access_note,
+            "resume_verified_skills": resume_skills[:8]
+        })
+
+    # Sort candidates by eligibility and match score
+    comparison_results.sort(key=lambda x: (x["eligibility"] == "eligible", x["match_score"]), reverse=True)
+
+    return {
+        "job_id": job.id,
+        "job_title": job.title,
+        "mandatory_requirements": job_mandatory,
+        "preferred_requirements": job_preferred,
+        "candidate_count": len(comparison_results),
+        "candidates": comparison_results
+    }
 
 @router.get("/applications")
 def get_recruiter_applications(

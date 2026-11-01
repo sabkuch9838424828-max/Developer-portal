@@ -105,6 +105,11 @@ class CandidateMatchCard(BaseModel):
     has_applied: bool = False
     has_invitation: bool = False
     application_status: Optional[str] = None
+    has_resume: bool = False
+    resume_id: Optional[int] = None
+    resume_visibility: Optional[str] = None
+    resume_filename: Optional[str] = None
+    evidence_count: int = 0
 
 class ApplicationPipelineUpdate(BaseModel):
     status: str  # "applied", "under_review", "shortlisted", "interview", "selected", "rejected"

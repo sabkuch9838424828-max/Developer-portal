@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { apiRequest } from "@/lib/api";
 import { User, Save, CheckCircle, ShieldCheck, Terminal, Activity } from "lucide-react";
+import ResumeIntelligencePanel from "@/components/ResumeIntelligencePanel";
 
 export default function TalentProfileEditorPage() {
   const [profile, setProfile] = useState<any>({
@@ -22,17 +23,18 @@ export default function TalentProfileEditorPage() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState(false);
 
+  const fetchProfile = async () => {
+    try {
+      const data = await apiRequest<any>("/talent/profile");
+      setProfile(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const data = await apiRequest<any>("/talent/profile");
-        setProfile(data);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchProfile();
   }, []);
 
@@ -84,6 +86,9 @@ export default function TalentProfileEditorPage() {
           <CheckCircle size={15} /> <span>PROFILE_PARAMETERS_COMMITTED_SUCCESSFULLY</span>
         </div>
       )}
+
+      {/* AI Resume Intelligence & Autofill Module */}
+      <ResumeIntelligencePanel onProfileUpdated={fetchProfile} />
 
       <form onSubmit={handleSave} className="p-6 sm:p-8 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D1017] space-y-5">
         

@@ -47,6 +47,7 @@ def on_startup():
 
     # Safe migration for new Team fields on existing databases
     with engine.connect() as conn:
+        from sqlalchemy import text
         for col_name, col_type in [
             ("logo_url", "VARCHAR(500)"),
             ("domain", "VARCHAR(100) DEFAULT 'Full-Stack Web'"),
@@ -55,8 +56,27 @@ def on_startup():
             ("visibility", "VARCHAR(50) DEFAULT 'public'"),
         ]:
             try:
-                from sqlalchemy import text
                 conn.execute(text(f"ALTER TABLE teams ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                pass
+
+        # Safe migration for new Resume columns
+        for col_name, col_type in [
+            ("user_id", "INTEGER DEFAULT 1"),
+            ("file_size", "INTEGER DEFAULT 0"),
+            ("mime_type", "VARCHAR(100) DEFAULT 'application/pdf'"),
+            ("version", "INTEGER DEFAULT 1"),
+            ("is_active", "BOOLEAN DEFAULT 1"),
+            ("visibility", "VARCHAR(50) DEFAULT 'verified_recruiters'"),
+            ("status", "VARCHAR(50) DEFAULT 'uploaded'"),
+            ("error_message", "TEXT"),
+            ("ocr_applied", "BOOLEAN DEFAULT 0"),
+            ("ai_provider_used", "VARCHAR(50)"),
+            ("updated_at", "DATETIME")
+        ]:
+            try:
+                conn.execute(text(f"ALTER TABLE resumes ADD COLUMN {col_name} {col_type}"))
                 conn.commit()
             except Exception:
                 pass

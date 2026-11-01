@@ -7,7 +7,8 @@ from app.ai.schemas.ai_schemas import (
     JobRequirementExtractionResult,
     ProfileAnalysisResult,
     ProjectRelevanceResult,
-    MatchExplanationResult
+    MatchExplanationResult,
+    ResumeExtractionResult
 )
 from app.models.ai_log import AIUsageLog
 
@@ -59,6 +60,22 @@ class AIOrchestrator:
         except Exception as e:
             latency = (time.time() - start_time) * 1000
             self._log_usage(db, "job_extraction", latency, "error", str(e))
+            raise
+
+    async def extract_resume(
+        self,
+        document_text: str,
+        db: Optional[Session] = None
+    ) -> ResumeExtractionResult:
+        start_time = time.time()
+        try:
+            result = await self.provider.extract_resume(document_text)
+            latency = (time.time() - start_time) * 1000
+            self._log_usage(db, "resume_extraction", latency, "success")
+            return result
+        except Exception as e:
+            latency = (time.time() - start_time) * 1000
+            self._log_usage(db, "resume_extraction", latency, "error", str(e))
             raise
 
     async def analyze_talent_profile(

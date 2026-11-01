@@ -138,6 +138,41 @@ class HybridMatchingEngine:
         # Eligibility status
         eligibility = "eligible" if is_eligible else "ineligible"
 
+        # Resume and portfolio evidence enrichment
+        resume_evidence_map = talent_data.get("resume_evidence", {})
+        supporting_evidence = []
+        for sk in matched_mandatory + matched_preferred:
+            clean_sk = sk.replace(" (via related)", "")
+            if clean_sk in resume_evidence_map:
+                supporting_evidence.append({
+                    "skill": clean_sk,
+                    "evidence": resume_evidence_map[clean_sk].get("evidence", "Documented in verified resume."),
+                    "source": "resume"
+                })
+
+        # Reasons for recommendation
+        reasons = []
+        if is_eligible:
+            reasons.append(f"Demonstrates non-negotiable mandatory skills ({len(matched_mandatory)}/{len(job_mandatory) or 1} matched).")
+            if relevant_projects:
+                reasons.append(f"Portfolio includes {len(relevant_projects)} project(s) verifying practical execution.")
+            if cand_exp >= exp_min:
+                reasons.append(f"Satisfies minimum experience requirement ({cand_exp} yrs vs {exp_min} required).")
+        else:
+            if missing_mandatory:
+                reasons.append(f"Eligibility gate blocked due to missing mandatory requirement(s): {', '.join(missing_mandatory)}.")
+            if cand_exp < exp_min:
+                reasons.append(f"Experience gap: candidate has {cand_exp} yrs vs minimum {exp_min} yrs required.")
+
+        # Suggestions to improve profile
+        suggestions = []
+        if missing_mandatory:
+            suggestions.append(f"Add verifiable experience or complete production projects in {', '.join(missing_mandatory)}.")
+        if missing_preferred:
+            suggestions.append(f"Consider learning or showcasing {', '.join(missing_preferred[:3])} to maximize compatibility.")
+        if not relevant_projects:
+            suggestions.append("Link GitHub repositories demonstrating modern backend or full-stack architecture.")
+
         # Construct explanation
         if is_eligible:
             explanation = (
@@ -156,7 +191,11 @@ class HybridMatchingEngine:
             "missing_mandatory_skills": missing_mandatory,
             "matched_preferred_skills": matched_preferred,
             "missing_preferred_skills": missing_preferred,
+            "partially_matched_skills": [m for m in matched_mandatory if "(via related)" in m],
             "relevant_projects": relevant_projects,
+            "supporting_evidence": supporting_evidence,
+            "reasons_for_recommendation": reasons,
+            "suggestions_to_improve": suggestions,
             "score_breakdown": {
                 "mandatory": round(mandatory_score, 1),
                 "preferred": round(preferred_score, 1),
@@ -164,6 +203,7 @@ class HybridMatchingEngine:
                 "experience": round(exp_score, 1),
                 "availability": round(avail_score, 1)
             },
+            "disclaimer": "Match score reflects deterministic skill and portfolio alignment; does not guarantee employment.",
             "explanation": explanation,
-            "algorithm_version": "1.0-hybrid"
+            "algorithm_version": "2.0-resume-hybrid"
         }

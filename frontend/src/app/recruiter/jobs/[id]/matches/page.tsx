@@ -20,6 +20,14 @@ import {
   ShieldAlert,
   Terminal,
   Activity,
+  FileText,
+  Download,
+  Eye,
+  SlidersHorizontal,
+  X,
+  Check,
+  Lock,
+  Globe
 } from "lucide-react";
 
 interface CandidateMatch {
@@ -45,6 +53,11 @@ interface CandidateMatch {
   has_applied: boolean;
   has_invitation: boolean;
   application_status?: string;
+  has_resume?: boolean;
+  resume_id?: number;
+  resume_visibility?: string;
+  resume_filename?: string;
+  evidence_count?: number;
 }
 
 export default function CandidateMatchesPage() {
@@ -63,6 +76,62 @@ export default function CandidateMatchesPage() {
   );
   const [sendingInvite, setSendingInvite] = useState(false);
   const [inviteSuccessNotice, setInviteSuccessNotice] = useState<string | null>(null);
+
+  // Comparison State
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [comparisonModalOpen, setComparisonModalOpen] = useState(false);
+  const [comparisonData, setComparisonData] = useState<any | null>(null);
+  const [loadingComparison, setLoadingComparison] = useState(false);
+
+  // Evidence Drilldown State
+  const [evidenceCandidate, setEvidenceCandidate] = useState<CandidateMatch | null>(null);
+  const [evidenceData, setEvidenceData] = useState<any | null>(null);
+  const [loadingEvidence, setLoadingEvidence] = useState(false);
+
+  const toggleSelectCandidate = (candId: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(candId) ? prev.filter((id) => id !== candId) : [...prev, candId]
+    );
+  };
+
+  const handleOpenComparison = async () => {
+    if (selectedIds.length < 2) {
+      alert("Please select at least 2 candidates to compare.");
+      return;
+    }
+    setLoadingComparison(true);
+    setComparisonModalOpen(true);
+    try {
+      const data = await apiRequest("/recruiter/candidates/compare", {
+        method: "POST",
+        body: JSON.stringify({
+          job_id: parseInt(jobId as string),
+          candidate_ids: selectedIds,
+        }),
+      });
+      setComparisonData(data);
+    } catch (e: any) {
+      alert(e.message || "Failed to compare candidates.");
+      setComparisonModalOpen(false);
+    } finally {
+      setLoadingComparison(false);
+    }
+  };
+
+  const handleOpenEvidence = async (candidate: CandidateMatch) => {
+    setEvidenceCandidate(candidate);
+    setLoadingEvidence(true);
+    try {
+      const data = await apiRequest(
+        `/recruiter/jobs/${jobId}/candidate-matches/${candidate.talent_profile_id}/evidence`
+      );
+      setEvidenceData(data);
+    } catch (e: any) {
+      alert(e.message || "Failed to fetch candidate match evidence.");
+    } finally {
+      setLoadingEvidence(false);
+    }
+  };
 
   const fetchMatches = async () => {
     if (!jobId) return;
@@ -141,7 +210,16 @@ export default function CandidateMatchesPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedIds.length >= 2 && (
+              <button
+                onClick={handleOpenComparison}
+                className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-mono font-bold flex items-center gap-1.5 shadow-md shadow-violet-600/20 cursor-pointer"
+              >
+                <SlidersHorizontal size={13} />
+                <span>COMPARE SELECTED ({selectedIds.length})</span>
+              </button>
+            )}
             <span className="text-xs font-mono px-3 py-1 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 font-bold border border-violet-500/20">
               {matches.filter((m) => m.eligibility === "eligible").length} ELIGIBLE MATCHES
             </span>
@@ -187,13 +265,25 @@ export default function CandidateMatchesPage() {
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   {/* Candidate Info */}
                   <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(m.talent_profile_id)}
+                        onChange={() => toggleSelectCandidate(m.talent_profile_id)}
+                        className="h-4 w-4 rounded accent-violet-600 cursor-pointer"
+                        title="Select for side-by-side comparison"
+                      />
                       <h2 className="text-base font-bold text-slate-900 dark:text-white">
                         {m.name}
                       </h2>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 uppercase font-semibold">
                         {m.talent_type}
                       </span>
+                      {m.has_resume && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-bold border border-cyan-500/20 flex items-center gap-1">
+                          <FileText size={10} /> CV VERIFIED ({m.evidence_count || 0})
+                        </span>
+                      )}
                       {m.has_applied && (
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
                           APPLIED
@@ -373,11 +463,30 @@ export default function CandidateMatchesPage() {
                     )}
                   </button>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => handleOpenEvidence(m)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-mono font-semibold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      <Eye size={12} />
+                      <span>EVIDENCE CITATIONS</span>
+                    </button>
+
+                    {m.has_resume && (
+                      <a
+                        href={`http://localhost:8000/api/v1/recruiter/candidates/${m.talent_profile_id}/resume`}
+                        download
+                        className="px-3 py-1.5 rounded-xl text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/[0.05] hover:bg-slate-200 dark:hover:bg-white/[0.08] flex items-center gap-1.5 transition"
+                      >
+                        <Download size={12} />
+                        <span>CV FILE</span>
+                      </a>
+                    )}
+
                     <button
                       onClick={() => setInviteModalCandidate(m)}
                       disabled={m.has_invitation}
-                      className="px-4 py-1.5 rounded-xl text-xs font-mono font-semibold text-white bg-violet-600 hover:bg-violet-500 shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                      className="px-4 py-1.5 rounded-xl text-xs font-mono font-semibold text-white bg-violet-600 hover:bg-violet-500 shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
                     >
                       <Send size={12} />
                       {m.has_invitation ? "INVITATION DISPATCHED" : "DISPATCH INVITATION"}
@@ -435,6 +544,358 @@ export default function CandidateMatchesPage() {
                 className="px-5 py-2 rounded-xl text-xs font-mono font-semibold text-white bg-violet-600 hover:bg-violet-500 shadow-md flex items-center gap-1.5"
               >
                 {sendingInvite ? "DISPATCHING..." : "CONFIRM DISPATCH"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================== */}
+      {/* SIDE-BY-SIDE CANDIDATE COMPARISON MODAL                               */}
+      {/* ====================================================================== */}
+      {comparisonModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="relative w-full max-w-7xl max-h-[92vh] flex flex-col rounded-2xl bg-[#0B0E14] border border-white/10 shadow-2xl overflow-hidden">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#0E121B] shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+                  <SlidersHorizontal size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-mono font-bold text-white uppercase tracking-wider">
+                    Candidate Comparison Matrix: {job?.title}
+                  </h3>
+                  <p className="text-[11px] font-mono text-slate-400">
+                    Comparing {comparisonData?.candidate_count || selectedIds.length} candidate profiles side-by-side grounded in verified evidence.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setComparisonModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Non-discrimination compliance note */}
+            <div className="px-6 py-2.5 bg-violet-950/30 border-b border-violet-500/10 text-[11px] font-mono text-violet-300 flex items-center gap-2 shrink-0">
+              <ShieldCheck size={14} className="text-cyan-400 shrink-0" />
+              <span>
+                <strong>Zero Demographic Bias:</strong> Ranking and compatibility metrics are calculated deterministically strictly from verified skills, code projects, and documented engineering experience. Protected demographic characteristics are never captured or evaluated.
+              </span>
+            </div>
+
+            {loadingComparison ? (
+              <div className="p-16 flex flex-col items-center justify-center gap-3">
+                <Activity size={24} className="animate-spin text-cyan-400" />
+                <span className="text-xs font-mono text-slate-400">CALCULATING_SIDE_BY_SIDE_MATRIX...</span>
+              </div>
+            ) : comparisonData ? (
+              <div className="flex-1 overflow-x-auto overflow-y-auto p-6">
+                <div className="grid grid-flow-col auto-cols-[320px] gap-4 min-w-full">
+                  {comparisonData.candidates?.map((cand: any) => (
+                    <div
+                      key={cand.candidate_id}
+                      className="p-5 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col justify-between space-y-4"
+                    >
+                      {/* Identity & Score */}
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <h4 className="text-base font-bold text-white font-mono">{cand.name}</h4>
+                            <p className="text-xs text-slate-400 font-mono mt-0.5">{cand.headline || cand.specialization}</p>
+                            <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500 mt-1">
+                              <span>{cand.experience_years} Yrs Exp</span>
+                              <span>•</span>
+                              <span>{cand.location || "Remote"}</span>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="text-2xl font-mono font-extrabold text-cyan-400">
+                              {cand.match_score.toFixed(0)}%
+                            </span>
+                            <div>
+                              {cand.eligibility === "eligible" ? (
+                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">
+                                  GATE PASSED
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold">
+                                  GATE BLOCKED
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Mandatory Coverage Meter */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                            <span>Mandatory Alignment</span>
+                            <span className="text-emerald-400 font-bold">{cand.mandatory_coverage_percent}%</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-emerald-500 rounded-full"
+                              style={{ width: `${cand.mandatory_coverage_percent}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Preferred Coverage Meter */}
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                            <span>Preferred Alignment</span>
+                            <span className="text-violet-400 font-bold">{cand.preferred_coverage_percent}%</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-violet-500 rounded-full"
+                              style={{ width: `${cand.preferred_coverage_percent}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Matched Mandatory Skills */}
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-mono uppercase text-slate-500">Verified Mandatory:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {cand.matched_mandatory?.map((s: string, idx: number) => (
+                              <span key={idx} className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-mono">
+                                ✓ {s}
+                              </span>
+                            ))}
+                            {cand.missing_mandatory?.map((s: string, idx: number) => (
+                              <span key={idx} className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 text-[10px] font-mono">
+                                ✗ {s}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Resume Verified Skills */}
+                        {cand.resume_verified_skills?.length > 0 && (
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-mono uppercase text-cyan-400">Resume-Documented:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {cand.resume_verified_skills.map((s: string, idx: number) => (
+                                <span key={idx} className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 text-[10px] font-mono">
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Projects Proof */}
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-mono uppercase text-slate-500">Demonstrated Projects:</span>
+                          <div className="space-y-1">
+                            {cand.relevant_projects?.slice(0, 2).map((p: any, idx: number) => (
+                              <div key={idx} className="p-2 rounded bg-black/40 text-[10px] font-mono text-slate-300 border border-white/5">
+                                <div className="font-bold text-white">{p.title}</div>
+                                <div className="text-slate-400 line-clamp-1">{p.matched_technologies?.join(", ")}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Download CV with Privacy Check */}
+                      <div className="pt-3 border-t border-white/10 space-y-1">
+                        {cand.has_resume ? (
+                          cand.can_view_resume ? (
+                            <a
+                              href={`http://localhost:8000/api/v1/recruiter/candidates/${cand.candidate_id}/resume`}
+                              download
+                              className="w-full py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition"
+                            >
+                              <Download size={12} />
+                              <span>DOWNLOAD CANDIDATE CV</span>
+                            </a>
+                          ) : (
+                            <div className="p-2 rounded bg-white/5 text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
+                              <Lock size={12} className="text-amber-400" />
+                              <span>{cand.resume_access_note}</span>
+                            </div>
+                          )
+                        ) : (
+                          <div className="text-[10px] font-mono text-slate-500 text-center py-1">
+                            No resume uploaded
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Footer */}
+            <div className="px-6 py-3 border-t border-white/10 bg-[#0E121B] flex justify-end shrink-0">
+              <button
+                onClick={() => setComparisonModalOpen(false)}
+                className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-mono text-white transition"
+              >
+                Close Comparison
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================== */}
+      {/* INDIVIDUAL CANDIDATE EVIDENCE DRILLDOWN MODAL                         */}
+      {/* ====================================================================== */}
+      {evidenceCandidate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl bg-[#0B0E14] border border-white/10 shadow-2xl overflow-hidden">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#0E121B] shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                  <Eye size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-mono font-bold text-white uppercase tracking-wider">
+                    Evidence Citations: {evidenceCandidate.name}
+                  </h3>
+                  <p className="text-[11px] font-mono text-slate-400">
+                    Compatibility Score: {evidenceCandidate.match_score.toFixed(0)}% • {evidenceCandidate.eligibility.toUpperCase()}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setEvidenceCandidate(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {loadingEvidence ? (
+              <div className="p-16 flex flex-col items-center justify-center gap-3">
+                <Activity size={24} className="animate-spin text-cyan-400" />
+                <span className="text-xs font-mono text-slate-400">RETRIEVING_GROUND_TRUTH_CITATIONS...</span>
+              </div>
+            ) : evidenceData ? (
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                
+                {/* Rationale Quote */}
+                <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-1">
+                  <span className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">
+                    Algorithmic Matching Rationale
+                  </span>
+                  <p className="text-xs font-mono text-slate-300">
+                    {evidenceData.explanation}
+                  </p>
+                </div>
+
+                {/* Mandatory Skills Grounded Proof */}
+                <div className="space-y-2">
+                  <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 size={14} /> Mandatory Requirements Evidence Citations
+                  </span>
+                  <div className="space-y-2">
+                    {evidenceData.mandatory_evidence?.map((item: any, idx: number) => (
+                      <div key={idx} className="p-3 rounded-lg border border-white/5 bg-black/40 space-y-1 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-white">{item.skill}</span>
+                          <span className="text-[10px] font-mono text-cyan-400">
+                            {item.is_resume_verified ? "CV CITATION" : "PROFILE VERIFIED"}
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-mono text-slate-300 italic bg-white/[0.02] p-2 rounded border border-white/[0.04]">
+                          "{item.evidence}"
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preferred Skills Evidence */}
+                {evidenceData.preferred_evidence?.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-mono font-bold text-violet-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles size={14} /> Preferred Qualifications Citations
+                    </span>
+                    <div className="space-y-2">
+                      {evidenceData.preferred_evidence.map((item: any, idx: number) => (
+                        <div key={idx} className="p-3 rounded-lg border border-white/5 bg-black/40 space-y-1 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-bold text-white">{item.skill}</span>
+                            <span className="text-[10px] font-mono text-violet-400">PREFERRED</span>
+                          </div>
+                          <p className="text-[11px] font-mono text-slate-300 italic bg-white/[0.02] p-2 rounded">
+                            "{item.evidence}"
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Score Breakdown Bars */}
+                <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] space-y-2">
+                  <span className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">
+                    Deterministic Weight Contribution
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs font-mono">
+                    <div className="p-2 rounded bg-black/30">
+                      <div className="text-[10px] text-slate-500">Mandatory (40%)</div>
+                      <div className="text-emerald-400 font-bold">{evidenceData.score_breakdown?.mandatory ?? 0}</div>
+                    </div>
+                    <div className="p-2 rounded bg-black/30">
+                      <div className="text-[10px] text-slate-500">Preferred (20%)</div>
+                      <div className="text-violet-400 font-bold">{evidenceData.score_breakdown?.preferred ?? 0}</div>
+                    </div>
+                    <div className="p-2 rounded bg-black/30">
+                      <div className="text-[10px] text-slate-500">Projects (20%)</div>
+                      <div className="text-cyan-400 font-bold">{evidenceData.score_breakdown?.projects ?? 0}</div>
+                    </div>
+                    <div className="p-2 rounded bg-black/30">
+                      <div className="text-[10px] text-slate-500">Exp (10%)</div>
+                      <div className="text-white font-bold">{evidenceData.score_breakdown?.experience ?? 0}</div>
+                    </div>
+                    <div className="p-2 rounded bg-black/30">
+                      <div className="text-[10px] text-slate-500">Avail (10%)</div>
+                      <div className="text-white font-bold">{evidenceData.score_breakdown?.availability ?? 0}</div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            ) : null}
+
+            {/* Footer */}
+            <div className="px-6 py-3 border-t border-white/10 bg-[#0E121B] flex items-center justify-between shrink-0">
+              {evidenceData?.can_download_resume ? (
+                <a
+                  href={`http://localhost:8000/api/v1/recruiter/candidates/${evidenceCandidate.talent_profile_id}/resume`}
+                  download
+                  className="px-3.5 py-1.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-bold flex items-center gap-1.5 transition"
+                >
+                  <Download size={13} />
+                  <span>DOWNLOAD ORIGINAL CV</span>
+                </a>
+              ) : (
+                <span className="text-[10px] font-mono text-slate-500">
+                  {evidenceData?.resume_access_reason || "CV Download Protected"}
+                </span>
+              )}
+
+              <button
+                onClick={() => setEvidenceCandidate(null)}
+                className="px-4 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-mono text-white transition"
+              >
+                Close Audit
               </button>
             </div>
           </div>

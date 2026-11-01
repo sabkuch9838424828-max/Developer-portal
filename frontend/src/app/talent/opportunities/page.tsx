@@ -39,6 +39,9 @@ interface OpportunityItem {
   has_applied: boolean;
   application_status?: string;
   is_invited: boolean;
+  supporting_evidence?: { skill: string; evidence: string; source: string }[];
+  has_active_resume?: boolean;
+  active_resume_filename?: string;
 }
 
 export default function TalentOpportunitiesPage() {
@@ -54,7 +57,12 @@ export default function TalentOpportunitiesPage() {
 
   const fetchOpportunities = async () => {
     try {
-      const data = await apiRequest<OpportunityItem[]>("/talent/opportunities");
+      let data: OpportunityItem[];
+      try {
+        data = await apiRequest<OpportunityItem[]>("/talent/opportunities/matches");
+      } catch {
+        data = await apiRequest<OpportunityItem[]>("/talent/opportunities");
+      }
       setOpportunities(data);
     } catch (e) {
       console.error(e);
@@ -157,6 +165,11 @@ export default function TalentOpportunitiesPage() {
                           APPLIED ({opp.application_status})
                         </span>
                       )}
+                      {opp.has_active_resume && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-bold border border-cyan-500/20 flex items-center gap-1">
+                          <Sparkles size={10} /> CV ENRICHED
+                        </span>
+                      )}
                     </div>
                     <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                       {opp.job_title}
@@ -255,6 +268,26 @@ export default function TalentOpportunitiesPage() {
                         </div>
                       </div>
                     </div>
+
+                    {/* Verified Resume Evidence */}
+                    {opp.supporting_evidence && opp.supporting_evidence.length > 0 && (
+                      <div className="space-y-2 pt-2">
+                        <div className="text-[11px] font-mono font-bold text-cyan-600 dark:text-cyan-400 uppercase flex items-center gap-1.5">
+                          <Sparkles size={12} /> Supporting Evidence from Verified Resume:
+                        </div>
+                        <div className="space-y-1.5">
+                          {opp.supporting_evidence.map((ev, eIdx) => (
+                            <div
+                              key={eIdx}
+                              className="p-2.5 rounded-xl border border-slate-200/60 dark:border-white/[0.04] bg-slate-50 dark:bg-[#121722] text-[11px] font-mono text-slate-700 dark:text-slate-300"
+                            >
+                              <span className="font-bold text-violet-600 dark:text-violet-400 mr-2">{ev.skill}:</span>
+                              <span className="italic">"{ev.evidence}"</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

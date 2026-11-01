@@ -1,6 +1,8 @@
-from typing import List, Optional
+import os
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_talent
 from app.models.user import User
@@ -11,7 +13,10 @@ from app.models.job import Job
 from app.models.match import JobMatch
 from app.models.application import Application, Invitation
 from app.models.notification import Notification
+from app.models.resume import Resume, ResumeExtraction, ResumeAccessLog
 from app.ai.services.skill_normalizer import SkillNormalizerService
+from app.services.resume_service import ResumeIntelligenceService
+from app.matching.engine import HybridMatchingEngine
 from app.schemas.talent import (
     TalentProfileUpdate, SkillItem, ProjectCreateRequest,
     ProjectResponse, TalentOpportunityCard, TalentDashboardStats,
@@ -542,3 +547,369 @@ def create_team(
 
     db.commit()
     return {"success": True, "team_id": team.id, "name": team.name}
+
+# ============================================================================
+# RESUME INTELLIGENCE & PROFILE AUTOFILL ENDPOINTS
+# ============================================================================
+
+@router.post("/resume")
+async def upload_resume(
+    file: UploadFile = File(...),
+    visibility: str = Form("verified_recruiters"),
+    auto_process: bool = Form(True),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Talent profile not found")
+
+    contents = await file.read()
+    filename = file.filename or "resume.pdf"
+    content_type = file.content_type or "application/pdf"
+
+    # Save and validate
+    resume = ResumeIntelligenceService.save_and_validate_resume(
+        contents=contents,
+        filename=filename,
+        content_type=content_type,
+        profile=profile,
+        user=current_user,
+        db=db,
+        visibility=visibility
+    )
+
+    extraction_result = None
+    if auto_process:
+        extraction_result = await ResumeIntelligenceService.process_resume_pipeline(resume.id, db)
+
+    return {
+        "success": True,
+        "resume_id": resume.id,
+        "filename": resume.original_filename,
+        "version": resume.version,
+        "status": resume.status,
+        "visibility": resume.visibility,
+        "created_at": resume.created_at,
+        "has_extraction": extraction_result is not None
+    }
+
+@router.get("/resume")
+def get_talent_resumes(
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Talent profile not found")
+
+    resumes = (
+        db.query(Resume)
+        .filter(Resume.talent_profile_id == profile.id)
+        .order_by(Resume.is_active.desc(), Resume.version.desc())
+        .all()
+    )
+
+    results = []
+    for r in resumes:
+        latest_ext = r.extractions[0] if r.extractions else None
+        results.append({
+            "id": r.id,
+            "filename": r.original_filename,
+            "file_size": r.file_size,
+            "mime_type": r.mime_type,
+            "version": r.version,
+            "is_active": r.is_active,
+            "visibility": r.visibility,
+            "status": r.status,
+            "ocr_applied": r.ocr_applied,
+            "ai_provider_used": r.ai_provider_used,
+            "error_message": r.error_message,
+            "created_at": r.created_at,
+            "updated_at": r.updated_at,
+            "extraction_id": latest_ext.id if latest_ext else None,
+            "review_status": latest_ext.review_status if latest_ext else None,
+            "confidence_score": latest_ext.confidence_score if latest_ext else None,
+            "skills_extracted_count": len(latest_ext.skills) if latest_ext and latest_ext.skills else 0,
+            "projects_extracted_count": len(latest_ext.projects) if latest_ext and latest_ext.projects else 0
+        })
+
+    active_resume = next((r for r in results if r["is_active"]), None)
+
+    return {
+        "active_resume": active_resume,
+        "resumes": results,
+        "total_count": len(results)
+    }
+
+@router.get("/resume/{resume_id}")
+def get_resume_detail(
+    resume_id: int,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    resume = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current_user.id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found.")
+
+    latest_ext = resume.extractions[0] if resume.extractions else None
+
+    return {
+        "id": resume.id,
+        "filename": resume.original_filename,
+        "file_size": resume.file_size,
+        "mime_type": resume.mime_type,
+        "version": resume.version,
+        "is_active": resume.is_active,
+        "visibility": resume.visibility,
+        "status": resume.status,
+        "ocr_applied": resume.ocr_applied,
+        "ai_provider_used": resume.ai_provider_used,
+        "error_message": resume.error_message,
+        "raw_text_preview": (resume.raw_text[:1000] if resume.raw_text else ""),
+        "created_at": resume.created_at,
+        "extraction": {
+            "id": latest_ext.id,
+            "review_status": latest_ext.review_status,
+            "confidence_score": latest_ext.confidence_score,
+            "confirmed_at": latest_ext.confirmed_at
+        } if latest_ext else None
+    }
+
+@router.get("/resume/{resume_id}/download")
+def download_resume(
+    resume_id: int,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    resume = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current_user.id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found.")
+
+    if not os.path.exists(resume.file_path):
+        raise HTTPException(status_code=404, detail="Underlying document file not found on storage server.")
+
+    ResumeIntelligenceService.log_access(resume.id, current_user.id, "download", "talent", db)
+
+    return FileResponse(
+        path=resume.file_path,
+        filename=resume.original_filename,
+        media_type=resume.mime_type
+    )
+
+@router.post("/resume/{resume_id}/process")
+async def process_or_reprocess_resume(
+    resume_id: int,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    resume = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current_user.id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found.")
+
+    extraction = await ResumeIntelligenceService.process_resume_pipeline(resume.id, db)
+    return {
+        "success": True,
+        "resume_id": resume.id,
+        "extraction_id": extraction.id,
+        "status": resume.status,
+        "review_status": extraction.review_status,
+        "confidence_score": extraction.confidence_score
+    }
+
+@router.get("/resume/{resume_id}/extraction")
+def get_resume_extraction_draft(
+    resume_id: int,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    resume = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current_user.id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found.")
+
+    extraction = (
+        db.query(ResumeExtraction)
+        .filter(ResumeExtraction.resume_id == resume.id)
+        .order_by(ResumeExtraction.created_at.desc())
+        .first()
+    )
+    if not extraction:
+        raise HTTPException(status_code=404, detail="No extraction record found for this resume.")
+
+    profile = current_user.talent_profile
+
+    # Re-calculate live conflicts with current profile
+    extracted_data = {
+        "basic_info": extraction.basic_info or {},
+        "education": extraction.education or [],
+        "skills": extraction.skills or [],
+        "projects": extraction.projects or [],
+        "experience": extraction.experience or [],
+        "additional": extraction.additional or {}
+    }
+    live_conflicts = ResumeIntelligenceService.compute_profile_conflicts(extracted_data, profile)
+
+    return {
+        "extraction_id": extraction.id,
+        "resume_id": resume.id,
+        "filename": resume.original_filename,
+        "confidence_score": extraction.confidence_score,
+        "review_status": extraction.review_status,
+        "confirmed_at": extraction.confirmed_at,
+        "raw_text": extraction.raw_text,
+        "basic_info": extraction.basic_info,
+        "education": extraction.education,
+        "skills": extraction.skills,
+        "projects": extraction.projects,
+        "experience": extraction.experience,
+        "additional": extraction.additional,
+        "conflicts": live_conflicts,
+        "current_profile_snapshot": {
+            "name": profile.name,
+            "headline": profile.headline,
+            "bio": profile.bio,
+            "location": profile.location,
+            "education": profile.education,
+            "skills_count": len(profile.profile_skills),
+            "projects_count": len(profile.projects)
+        }
+    }
+
+@router.post("/resume/{resume_id}/confirm")
+def confirm_resume_extraction(
+    resume_id: int,
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    result = ResumeIntelligenceService.confirm_and_autofill_profile(
+        resume_id=resume_id,
+        payload=payload,
+        user=current_user,
+        db=db
+    )
+    return result
+
+@router.patch("/resume/{resume_id}/visibility")
+def update_resume_visibility(
+    resume_id: int,
+    payload: Dict[str, str] = Body(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    visibility = payload.get("visibility")
+    if visibility not in ["public", "verified_recruiters", "private"]:
+        raise HTTPException(status_code=400, detail="Invalid visibility value. Allowed: 'public', 'verified_recruiters', 'private'")
+
+    resume = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current_user.id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found.")
+
+    resume.visibility = visibility
+    ResumeIntelligenceService.log_access(resume.id, current_user.id, "visibility_change", "talent", db, notes=f"Set to {visibility}")
+    db.commit()
+
+    return {"success": True, "resume_id": resume.id, "visibility": resume.visibility}
+
+@router.delete("/resume/{resume_id}")
+def delete_resume(
+    resume_id: int,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    resume = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current_user.id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found.")
+
+    # Remove file on disk if exists
+    if os.path.exists(resume.file_path):
+        try:
+            os.remove(resume.file_path)
+        except Exception:
+            pass
+
+    db.delete(resume)
+    db.commit()
+
+    # Re-activate latest remaining resume if available
+    remaining = (
+        db.query(Resume)
+        .filter(Resume.talent_profile_id == current_user.talent_profile.id)
+        .order_by(Resume.version.desc())
+        .first()
+    )
+    if remaining:
+        remaining.is_active = True
+        db.commit()
+
+    return {"success": True, "message": "Resume and associated extractions deleted successfully."}
+
+@router.get("/opportunities/matches")
+def get_resume_enriched_matches(
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Talent profile not found")
+
+    matches = (
+        db.query(JobMatch)
+        .filter(JobMatch.talent_profile_id == profile.id)
+        .order_by(JobMatch.match_score.desc())
+        .all()
+    )
+
+    # Active resume info
+    active_resume = next((r for r in profile.resumes if r.is_active), None)
+    resume_evidence_summary = {}
+    if active_resume and active_resume.extractions:
+        for sk in active_resume.extractions[0].skills or []:
+            if sk.get("canonical_name"):
+                resume_evidence_summary[sk["canonical_name"]] = sk.get("evidence", "")
+
+    results = []
+    for m in matches:
+        job = m.job
+        if job.status != "published":
+            continue
+
+        company_name = job.company.name if job.company else "Tech Collective"
+        company_logo = job.company.logo_url if job.company else None
+        app = db.query(Application).filter(Application.job_id == job.id, Application.talent_profile_id == profile.id).first()
+
+        # Build evidence list for matched skills
+        supporting_evidence = []
+        for s in (m.matched_mandatory_skills or []) + (m.matched_preferred_skills or []):
+            clean_s = s.replace(" (via related)", "")
+            if clean_s in resume_evidence_summary:
+                supporting_evidence.append({
+                    "skill": clean_s,
+                    "evidence": resume_evidence_summary[clean_s],
+                    "source": "verified_resume"
+                })
+
+        results.append({
+            "job_id": job.id,
+            "job_title": job.title,
+            "company_name": company_name,
+            "company_logo": company_logo,
+            "employment_type": job.employment_type,
+            "work_mode": job.work_mode,
+            "location": job.location,
+            "compensation_range": job.compensation_range,
+            "match_score": m.match_score,
+            "eligibility": m.eligibility,
+            "matched_mandatory_skills": m.matched_mandatory_skills or [],
+            "missing_mandatory_skills": m.missing_mandatory_skills or [],
+            "matched_preferred_skills": m.matched_preferred_skills or [],
+            "missing_preferred_skills": m.missing_preferred_skills or [],
+            "score_breakdown": m.score_breakdown or {},
+            "explanation": m.explanation,
+            "supporting_evidence": supporting_evidence,
+            "has_applied": app is not None,
+            "has_active_resume": active_resume is not None,
+            "active_resume_filename": active_resume.original_filename if active_resume else None
+        })
+
+    return results

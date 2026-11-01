@@ -5,7 +5,8 @@ from app.ai.schemas.ai_schemas import (
     ProfileAnalysisResult,
     ProjectRelevanceResult,
     MatchExplanationResult,
-    SkillNormalizationResult
+    SkillNormalizationResult,
+    ResumeExtractionResult
 )
 
 class BaseAIProvider(ABC):
@@ -61,6 +62,11 @@ class BaseAIProvider(ABC):
         eligibility: str
     ) -> MatchExplanationResult:
         """Generate explainable match rationale grounded in deterministic data."""
+        pass
+
+    @abstractmethod
+    async def extract_resume(self, document_text: str) -> ResumeExtractionResult:
+        """Extract structured resume information into strict Pydantic schema."""
         pass
 
     @abstractmethod

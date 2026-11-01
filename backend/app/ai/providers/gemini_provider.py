@@ -7,7 +7,8 @@ from app.ai.schemas.ai_schemas import (
     JobRequirementExtractionResult,
     ProfileAnalysisResult,
     ProjectRelevanceResult,
-    MatchExplanationResult
+    MatchExplanationResult,
+    ResumeExtractionResult
 )
 from app.ai.prompts.templates import (
     JOB_REQUIREMENT_EXTRACTION_SYSTEM_PROMPT,
@@ -158,6 +159,24 @@ class GeminiProvider(BaseAIProvider):
                 matched_mandatory, missing_mandatory, matched_preferred, missing_preferred,
                 relevant_projects, experience_years, exp_min, exp_max, match_score, eligibility
             )
+
+    async def extract_resume(self, document_text: str) -> ResumeExtractionResult:
+        try:
+            system_prompt = (
+                "You are an expert AI Resume Intelligence extractor. "
+                "Analyze the resume text and return a valid JSON object matching the schema with fields: "
+                "basic_info (full_name, headline, summary, portfolio_url, github_url, linkedin_url, email, phone), "
+                "education (list of {institution, degree, specialization, graduation_year, current_status}), "
+                "skills (list of {canonical_name, category, evidence, associated_context, confidence, proficiency}), "
+                "projects (list of {title, description, technologies, user_contribution, confidence}), "
+                "experience (list of {organization, role, employment_type, responsibilities, confidence}), "
+                "additional (certifications, achievements, languages)."
+            )
+            user_prompt = f"Resume Document:\n{document_text[:4000]}"
+            data = await self._call_gemini_json(system_prompt, user_prompt)
+            return ResumeExtractionResult(**data)
+        except Exception:
+            return await self.fallback.extract_resume(document_text)
 
     async def test_connection(self) -> Dict[str, Any]:
         if not self.api_key:

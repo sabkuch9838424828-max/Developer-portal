@@ -41,16 +41,4 @@ class ProjectTechnology(Base):
     project = relationship("Project", back_populates="technologies")
     skill = relationship("Skill", back_populates="project_technologies")
 
-class Resume(Base):
-    __tablename__ = "resumes"
-
-    id = Column(Integer, primary_key=True, index=True)
-    talent_profile_id = Column(Integer, ForeignKey("talent_profiles.id", ondelete="CASCADE"), nullable=False)
-    file_path = Column(String(500), nullable=False)
-    original_filename = Column(String(255), nullable=False)
-    raw_text = Column(Text, nullable=True)
-    parsed_skills = Column(Text, nullable=True)  # JSON string or CSV
-    parsed_experience = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=utc_now)
-
-    talent_profile = relationship("TalentProfile", back_populates="resumes")
+from app.models.resume import Resume

@@ -48,3 +48,75 @@ class SkillNormalizationResult(BaseModel):
     category: str
     is_known: bool
     related_skills: List[str] = Field(default_factory=list)
+
+class ResumeBasicInfo(BaseModel):
+    full_name: Optional[str] = None
+    headline: Optional[str] = None
+    summary: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    github_url: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    other_links: List[str] = Field(default_factory=list)
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+
+class ResumeEducationItem(BaseModel):
+    institution: str
+    degree: Optional[str] = None
+    specialization: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    graduation_year: Optional[int] = None
+    current_status: Optional[str] = None
+    coursework: List[str] = Field(default_factory=list)
+    confidence: float = 0.95
+
+class ResumeSkillItem(BaseModel):
+    canonical_name: str
+    category: str = "General"
+    evidence: str = Field(description="Direct snippet or quote from the resume where the skill is demonstrated or listed")
+    associated_context: Optional[str] = Field(default=None, description="Associated project, job title, or section")
+    confidence: float = 0.95
+    proficiency: Optional[str] = None
+
+class ResumeProjectItem(BaseModel):
+    title: str
+    description: str
+    technologies: List[str] = Field(default_factory=list)
+    user_contribution: Optional[str] = None
+    responsibilities: List[str] = Field(default_factory=list)
+    outcomes: Optional[str] = None
+    project_url: Optional[str] = None
+    dates: Optional[str] = None
+    confidence: float = 0.95
+
+class ResumeExperienceItem(BaseModel):
+    organization: str
+    role: str
+    employment_type: str = "Full-time"
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    responsibilities: List[str] = Field(default_factory=list)
+    accomplishments: List[str] = Field(default_factory=list)
+    confidence: float = 0.95
+
+class ResumeAdditionalInfo(BaseModel):
+    certifications: List[Dict[str, Any]] = Field(default_factory=list)
+    achievements: List[str] = Field(default_factory=list)
+    publications: List[str] = Field(default_factory=list)
+    open_source_contributions: List[str] = Field(default_factory=list)
+    competitions: List[str] = Field(default_factory=list)
+    languages: List[str] = Field(default_factory=list)
+    availability_preference: Optional[str] = None
+
+class ResumeExtractionResult(BaseModel):
+    basic_info: ResumeBasicInfo = Field(default_factory=ResumeBasicInfo)
+    education: List[ResumeEducationItem] = Field(default_factory=list)
+    skills: List[ResumeSkillItem] = Field(default_factory=list)
+    projects: List[ResumeProjectItem] = Field(default_factory=list)
+    experience: List[ResumeExperienceItem] = Field(default_factory=list)
+    additional: ResumeAdditionalInfo = Field(default_factory=ResumeAdditionalInfo)
+    confidence: float = 0.95
+    schema_version: str = "2.0-resume-intelligence"
+
