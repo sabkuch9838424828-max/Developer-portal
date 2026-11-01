@@ -2,6 +2,7 @@
 ### AI-Powered Developer Recruitment, Talent Discovery & Portfolio Platform
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-brightgreen?style=for-the-badge&logo=vercel)](https://developer-portal-kmaa-1zxvv7ttu-sabkuch9838424828-max.vercel.app/)
+[![API Live](https://img.shields.io/badge/API%20Live-Render-46E3B7?style=for-the-badge&logo=render)](https://developer-portal-uhsj.onrender.com/docs)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.4.3-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Python Tests](https://img.shields.io/badge/Pytest-20%2F20%20Passed-blue?style=for-the-badge&logo=python)](https://github.com/sabkuch9838424828-max/Developer-portal)
@@ -9,7 +10,8 @@
 > **GDG on Campus MMMUT — PROMPT2PIXEL (Round 2 Submission)**  
 > **Team Name**: TEAM INNOCENT  
 > **Team Members**: Nitin Kumar & Swati Kushwaha  
-> **Live App**: [https://developer-portal-kmaa-1zxvv7ttu-sabkuch9838424828-max.vercel.app/](https://developer-portal-kmaa-1zxvv7ttu-sabkuch9838424828-max.vercel.app/)  
+> **Live Web App**: [https://developer-portal-kmaa-1zxvv7ttu-sabkuch9838424828-max.vercel.app/](https://developer-portal-kmaa-1zxvv7ttu-sabkuch9838424828-max.vercel.app/)  
+> **Live Backend API**: [https://developer-portal-uhsj.onrender.com](https://developer-portal-uhsj.onrender.com) (Swagger Docs: [/docs](https://developer-portal-uhsj.onrender.com/docs))  
 > **Presentation (Canva)**: [View Pitch Deck](https://www.canva.com/d/FsUlMIs8tDv7Pin) | [Download PDF](https://export-download.canva.com/jn88Q/DAHZrEjn88Q/-1/0-1767057761876890754.pdf) | [Download PPTX](https://export-download.canva.com/jn88Q/DAHZrEjn88Q/-1/1952831247639560876.pptx)  
 > **Video Walkthrough**: [Watch / Download 1080p MP4](https://export-download.canva.com/jn88Q/DAHZrEjn88Q/-1/0-1160197714709456966.mp4)
 

@@ -4,8 +4,8 @@ function getBaseUrl(): string {
   }
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    if (host && host !== "localhost" && host !== "127.0.0.1" && !host.includes("vercel.app")) {
-      return `http://${host}:8000/api/v1`;
+    if (host && host !== "localhost" && host !== "127.0.0.1") {
+      return "https://developer-portal-uhsj.onrender.com/api/v1";
     }
   }
   return "http://localhost:8000/api/v1";
