@@ -1,14 +1,23 @@
-function getBaseUrl(): string {
+export function getBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
   }
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    if (host && host !== "localhost" && host !== "127.0.0.1") {
-      return "https://developer-portal-uhsj.onrender.com/api/v1";
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "http://localhost:8000/api/v1";
     }
+    return "https://developer-portal-uhsj.onrender.com/api/v1";
+  }
+  if (process.env.NODE_ENV === "production") {
+    return "https://developer-portal-uhsj.onrender.com/api/v1";
   }
   return "http://localhost:8000/api/v1";
+}
+
+export function getBackendBaseUrl(): string {
+  const api = getBaseUrl();
+  return api.replace(/\/api\/v1$/, "");
 }
 
 export async function apiRequest<T = any>(

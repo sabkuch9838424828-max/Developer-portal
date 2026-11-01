@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Sparkles,
 } from "lucide-react";
+import { getBaseUrl } from "@/lib/api";
 
 const CATEGORIES = [
   "All",
@@ -75,8 +76,8 @@ export default function TalentAchievementsPage() {
       };
 
       const [achRes, attrRes] = await Promise.all([
-        fetch("http://localhost:8000/api/v1/talent/achievements", { headers }),
-        fetch("http://localhost:8000/api/v1/talent/attributions", { headers }),
+        fetch(`${getBaseUrl()}/talent/achievements`, { headers }),
+        fetch(`${getBaseUrl()}/talent/attributions`, { headers }),
       ]);
 
       if (achRes.ok) {
@@ -138,8 +139,8 @@ export default function TalentAchievementsPage() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       const url = editingItem
-        ? `http://localhost:8000/api/v1/talent/achievements/${editingItem.id}`
-        : "http://localhost:8000/api/v1/talent/achievements";
+        ? `${getBaseUrl()}/talent/achievements/${editingItem.id}`
+        : `${getBaseUrl()}/talent/achievements`;
 
       const method = editingItem ? "PATCH" : "POST";
 
@@ -167,7 +168,7 @@ export default function TalentAchievementsPage() {
         evForm.append("title", `${formData.title} Certificate`);
         evForm.append("evidence_type", "certificate");
 
-        await fetch(`http://localhost:8000/api/v1/talent/achievements/${savedAch.id}/evidence`, {
+        await fetch(`${getBaseUrl()}/talent/achievements/${savedAch.id}/evidence`, {
           method: "POST",
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -189,7 +190,7 @@ export default function TalentAchievementsPage() {
     if (!confirm("Permanently delete this achievement record?")) return;
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`http://localhost:8000/api/v1/talent/achievements/${id}`, {
+      const res = await fetch(`${getBaseUrl()}/talent/achievements/${id}`, {
         method: "DELETE",
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -209,7 +210,7 @@ export default function TalentAchievementsPage() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       const res = await fetch(
-        `http://localhost:8000/api/v1/talent/achievements/${showVerifyModal.id}/request-verification`,
+        `${getBaseUrl()}/talent/achievements/${showVerifyModal.id}/request-verification`,
         {
           method: "POST",
           headers: {
@@ -236,7 +237,7 @@ export default function TalentAchievementsPage() {
   const handleAttributionResponse = async (contributorId: number, statusChoice: "accepted" | "declined") => {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`http://localhost:8000/api/v1/talent/attributions/${contributorId}/respond`, {
+      const res = await fetch(`${getBaseUrl()}/talent/attributions/${contributorId}/respond`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

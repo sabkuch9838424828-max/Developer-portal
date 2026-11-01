@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, getBackendBaseUrl } from "@/lib/api";
 import { Camera, Trash2, Upload, Crop, ShieldCheck, CheckCircle2, Image as ImageIcon, X } from "lucide-react";
 
 interface AvatarEditorProps {
@@ -159,7 +159,7 @@ export default function AvatarEditor({
       <div className="relative h-40 sm:h-48 w-full bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-slate-200/70 dark:border-white/[0.06] overflow-hidden group">
         {currentCover ? (
           <img
-            src={currentCover.startsWith("http") ? currentCover : `http://localhost:8000${currentCover}`}
+            src={currentCover.startsWith("http") ? currentCover : `${getBackendBaseUrl()}${currentCover}`}
             alt="Profile Cover"
             className="w-full h-full object-cover"
           />
@@ -200,7 +200,7 @@ export default function AvatarEditor({
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl ring-4 ring-white dark:ring-[#0D1017] shadow-xl overflow-hidden bg-slate-800 flex items-center justify-center relative">
               {currentAvatar ? (
                 <img
-                  src={currentAvatar.startsWith("http") ? currentAvatar : `http://localhost:8000${currentAvatar}`}
+                  src={currentAvatar.startsWith("http") ? currentAvatar : `${getBackendBaseUrl()}${currentAvatar}`}
                   alt={name}
                   className="w-full h-full object-cover"
                 />

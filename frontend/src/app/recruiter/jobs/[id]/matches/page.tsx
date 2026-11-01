@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, getBaseUrl, getBackendBaseUrl } from "@/lib/api";
 import {
   Sparkles,
   CheckCircle2,
@@ -319,7 +319,7 @@ export default function CandidateMatchesPage() {
                       />
                       <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-white overflow-hidden shrink-0">
                         {m.profile_picture_url ? (
-                          <img src={m.profile_picture_url.startsWith("http") ? m.profile_picture_url : `http://localhost:8000${m.profile_picture_url}`} alt={m.name} className="w-full h-full object-cover" />
+                          <img src={m.profile_picture_url.startsWith("http") ? m.profile_picture_url : `${getBackendBaseUrl()}${m.profile_picture_url}`} alt={m.name} className="w-full h-full object-cover" />
                         ) : (
                           m.name.slice(0, 2).toUpperCase()
                         )}
@@ -535,7 +535,7 @@ export default function CandidateMatchesPage() {
 
                     {m.has_resume && (
                       <a
-                        href={`http://localhost:8000/api/v1/recruiter/candidates/${m.talent_profile_id}/resume`}
+                        href={`${getBaseUrl()}/recruiter/candidates/${m.talent_profile_id}/resume`}
                         download
                         className="px-3 py-1.5 rounded-xl text-xs font-mono font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/[0.05] hover:bg-slate-200 dark:hover:bg-white/[0.08] flex items-center gap-1.5 transition"
                       >
@@ -772,7 +772,7 @@ export default function CandidateMatchesPage() {
                         {cand.has_resume ? (
                           cand.can_view_resume ? (
                             <a
-                              href={`http://localhost:8000/api/v1/recruiter/candidates/${cand.candidate_id}/resume`}
+                              href={`${getBaseUrl()}/recruiter/candidates/${cand.candidate_id}/resume`}
                               download
                               className="w-full py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition"
                             >
@@ -939,7 +939,7 @@ export default function CandidateMatchesPage() {
             <div className="px-6 py-3 border-t border-white/10 bg-[#0E121B] flex items-center justify-between shrink-0">
               {evidenceData?.can_download_resume ? (
                 <a
-                  href={`http://localhost:8000/api/v1/recruiter/candidates/${evidenceCandidate.talent_profile_id}/resume`}
+                  href={`${getBaseUrl()}/recruiter/candidates/${evidenceCandidate.talent_profile_id}/resume`}
                   download
                   className="px-3.5 py-1.5 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-bold flex items-center gap-1.5 transition"
                 >

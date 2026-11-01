@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, getBaseUrl } from "@/lib/api";
 import {
   FileText,
   Upload,
@@ -428,7 +428,7 @@ export default function ResumeIntelligencePanel({ onProfileUpdated }: Props) {
 
             <div className="flex items-center gap-2">
               <a
-                href={`http://localhost:8000/api/v1/talent/resume/${active.id}/download`}
+                href={`${getBaseUrl()}/talent/resume/${active.id}/download`}
                 download
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/[0.05] hover:bg-slate-200 dark:hover:bg-white/[0.08] text-xs font-mono text-slate-700 dark:text-slate-300 transition"
               >

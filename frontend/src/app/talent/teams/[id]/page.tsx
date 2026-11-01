@@ -3,7 +3,7 @@
 import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiRequest } from "@/lib/api";
+import { apiRequest, getBaseUrl, getBackendBaseUrl } from "@/lib/api";
 import {
   Users,
   Shield,
@@ -386,7 +386,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         {/* Team Cover Banner */}
         <div className="h-32 sm:h-40 w-full relative bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-slate-200/60 dark:border-white/[0.06] flex items-end p-4">
           {team.cover_image_url && (
-            <img src={team.cover_image_url.startsWith("http") ? team.cover_image_url : `http://localhost:8000${team.cover_image_url}`} alt="Team Cover" className="absolute inset-0 w-full h-full object-cover" />
+            <img src={team.cover_image_url.startsWith("http") ? team.cover_image_url : `${getBackendBaseUrl()}${team.cover_image_url}`} alt="Team Cover" className="absolute inset-0 w-full h-full object-cover" />
           )}
           {(team.is_owner || team.is_admin) && (
             <label className="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 backdrop-blur border border-white/20 text-white text-[11px] font-mono cursor-pointer flex items-center gap-1.5 z-10">
@@ -398,7 +398,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                 const fd = new FormData();
                 fd.append("file", e.target.files[0]);
                 const token = localStorage.getItem("token");
-                await fetch(`http://localhost:8000/api/v1/teams/${team.id}/cover`, {
+                await fetch(`${getBaseUrl()}/teams/${team.id}/cover`, {
                   method: "POST",
                   headers: token ? { Authorization: `Bearer ${token}` } : {},
                   body: fd
@@ -414,7 +414,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
           <div className="flex items-end gap-4">
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl ring-4 ring-white dark:ring-[#0D1017] bg-gradient-to-tr from-cyan-600 via-indigo-600 to-blue-600 text-white flex items-center justify-center font-bold text-2xl shadow-xl overflow-hidden relative group shrink-0">
               {team.logo_url ? (
-                <img src={team.logo_url.startsWith("http") ? team.logo_url : `http://localhost:8000${team.logo_url}`} alt={team.name} className="w-full h-full object-cover" />
+                <img src={team.logo_url.startsWith("http") ? team.logo_url : `${getBackendBaseUrl()}${team.logo_url}`} alt={team.name} className="w-full h-full object-cover" />
               ) : (
                 team.name.charAt(0)
               )}
@@ -428,7 +428,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
                     const fd = new FormData();
                     fd.append("file", e.target.files[0]);
                     const token = localStorage.getItem("token");
-                    await fetch(`http://localhost:8000/api/v1/teams/${team.id}/logo`, {
+                    await fetch(`${getBaseUrl()}/teams/${team.id}/logo`, {
                       method: "POST",
                       headers: token ? { Authorization: `Bearer ${token}` } : {},
                       body: fd
@@ -1412,7 +1412,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
               e.preventDefault();
               try {
                 const token = localStorage.getItem("token");
-                await fetch(`http://localhost:8000/api/v1/teams/${team.id}/achievements`, {
+                await fetch(`${getBaseUrl()}/teams/${team.id}/achievements`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
                   body: JSON.stringify(teamAchForm)
@@ -1476,7 +1476,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
               if (!selectedMemberForAttr) return;
               try {
                 const token = localStorage.getItem("token");
-                await fetch(`http://localhost:8000/api/v1/teams/${team.id}/achievements/${showAttributeModal.id}/attribute`, {
+                await fetch(`${getBaseUrl()}/teams/${team.id}/achievements/${showAttributeModal.id}/attribute`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
                   body: JSON.stringify({ talent_profile_id: selectedMemberForAttr, role_in_project: attrRoleInput })
