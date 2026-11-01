@@ -18,7 +18,10 @@ __pycache__/
 *$py.class
 *.so
 .Python
+# Python virtual environments & build artifacts
+# (Specific paths only so frontend/src/lib is not ignored)
 backend/venv/
+backend/.venv/
 venv/
 .venv/
 env/
@@ -29,8 +32,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
@@ -39,6 +40,10 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# Explicitly ensure frontend lib is tracked
+!frontend/src/lib/
+!frontend/src/lib/**
 
 # Testing & Pytest
 .pytest_cache/
