@@ -141,9 +141,9 @@ export default function RecruiterJobsListPage() {
               {/* Skills */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <span className="text-[10px] text-slate-400 uppercase font-mono">Mandatory:</span>
-                {job.mandatory_skills.map((s: string) => (
+                {job.mandatory_skills.map((s: string, idx: number) => (
                   <span
-                    key={s}
+                    key={`job-mand-${s}-${idx}`}
                     className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-medium"
                   >
                     {s}

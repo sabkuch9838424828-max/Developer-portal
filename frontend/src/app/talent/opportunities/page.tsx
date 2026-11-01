@@ -203,17 +203,17 @@ export default function TalentOpportunitiesPage() {
                   <span className="text-[10px] font-mono uppercase text-slate-400 mr-1">
                     Verified Competencies:
                   </span>
-                  {opp.matched_mandatory_skills.map((s) => (
+                  {opp.matched_mandatory_skills.map((s, idx) => (
                     <span
-                      key={s}
+                      key={`mand-${s}-${idx}`}
                       className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20"
                     >
                       <CheckCircle2 size={10} /> {s}
                     </span>
                   ))}
-                  {opp.matched_preferred_skills.map((s) => (
+                  {opp.matched_preferred_skills.map((s, idx) => (
                     <span
-                      key={s}
+                      key={`pref-${s}-${idx}`}
                       className="px-2.5 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20"
                     >
                       +{s}

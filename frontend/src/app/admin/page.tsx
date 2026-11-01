@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { apiRequest } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import {
   Shield,
   Cpu,
@@ -17,9 +18,12 @@ import {
   Sliders,
   Play,
   Pause,
+  Lock,
+  Key,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
+  const { user, token, login, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"ai" | "users" | "jobs" | "audit">("ai");
   const [analytics, setAnalytics] = useState<any>(null);
   const [aiStatus, setAiStatus] = useState<any>(null);
@@ -28,11 +32,18 @@ export default function AdminDashboardPage() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Admin In-line Auth Form State
+  const [adminEmail, setAdminEmail] = useState("admin@nexora.ai");
+  const [adminPassword, setAdminPassword] = useState("AdminSecret123!");
+  const [authError, setAuthError] = useState("");
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+
   // Connection Test State
   const [testingConnection, setTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
 
   const fetchAdminData = async () => {
+    setLoading(true);
     try {
       const [analyticsData, aiData, usersData, jobsData, auditData] = await Promise.all([
         apiRequest<any>("/admin/analytics"),
@@ -46,16 +57,42 @@ export default function AdminDashboardPage() {
       setUsers(usersData);
       setJobs(jobsData);
       setAuditLogs(auditData);
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error("Admin data fetch error:", e);
+      if (e?.message?.includes("credentials") || e?.message?.includes("401") || e?.message?.includes("403")) {
+        setAuthError(e.message);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAdminData();
-  }, []);
+    if (authLoading) return;
+    if (token && user?.role === "admin") {
+      fetchAdminData();
+    } else {
+      setLoading(false);
+    }
+  }, [token, user, authLoading]);
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingAuth(true);
+    setAuthError("");
+    try {
+      const loggedUser = await login(adminEmail, adminPassword);
+      if (loggedUser.role !== "admin") {
+        setAuthError("This account does not have Administrator privileges.");
+        return;
+      }
+      await fetchAdminData();
+    } catch (err: any) {
+      setAuthError(err.message || "Invalid administrator credentials.");
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
 
   const handleTestConnection = async () => {
     setTestingConnection(true);
@@ -94,6 +131,94 @@ export default function AdminDashboardPage() {
       alert(e.message || "Failed to moderate job.");
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!token || user?.role !== "admin") {
+    return (
+      <div className="w-full max-w-md mx-auto px-4 py-16">
+        <div className="p-8 rounded-3xl glass-panel border border-violet-500/30 bg-gradient-to-b from-white to-slate-50 dark:from-[#0D1017] dark:to-[#08090E] shadow-2xl space-y-6">
+          <div className="text-center space-y-2">
+            <div className="h-14 w-14 mx-auto rounded-2xl bg-violet-500/10 dark:bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
+              <Shield size={28} />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              Administrator Authentication
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              This operations dashboard requires System Administrator privileges to view analytics, monitor AI latency, and manage users.
+            </p>
+          </div>
+
+          {authError && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
+              <AlertCircle size={14} className="shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Admin Email
+              </label>
+              <input
+                type="email"
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-slate-900/70 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Admin Password
+              </label>
+              <input
+                type="password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-slate-900/70 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmittingAuth}
+              className="w-full py-3 rounded-xl font-medium text-xs bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-violet-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmittingAuth ? (
+                <>
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Verifying Credentials...</span>
+                </>
+              ) : (
+                <>
+                  <Lock size={14} />
+                  <span>Authenticate & Open Admin Console</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="p-3 rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-900/40 text-[11px] text-slate-600 dark:text-slate-300">
+            <span className="font-semibold text-violet-700 dark:text-violet-400">Default Seed Credentials:</span>
+            <div className="font-mono text-[10px] mt-1 text-slate-500 dark:text-slate-400">
+              admin@nexora.ai / AdminSecret123!
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

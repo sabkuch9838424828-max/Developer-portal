@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = async () => {
     try {
-      const storedToken = localStorage.getItem("nexora_token");
+      const storedToken = localStorage.getItem("nexora_token") || localStorage.getItem("token");
       if (!storedToken) {
         setUser(null);
         setToken(null);
@@ -44,10 +44,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       setToken(storedToken);
+      localStorage.setItem("nexora_token", storedToken);
+      localStorage.setItem("token", storedToken);
       const userData = await apiRequest<User>("/auth/me");
       setUser(userData);
     } catch {
       localStorage.removeItem("nexora_token");
+      localStorage.removeItem("token");
       setUser(null);
       setToken(null);
     } finally {
@@ -73,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     localStorage.setItem("nexora_token", res.access_token);
+    localStorage.setItem("token", res.access_token);
     setToken(res.access_token);
 
     const currentUser: User = {
@@ -99,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     localStorage.setItem("nexora_token", res.access_token);
+    localStorage.setItem("token", res.access_token);
     setToken(res.access_token);
 
     const currentUser: User = {
@@ -126,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     localStorage.setItem("nexora_token", res.access_token);
+    localStorage.setItem("token", res.access_token);
     setToken(res.access_token);
 
     const currentUser: User = {
@@ -141,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     localStorage.removeItem("nexora_token");
+    localStorage.removeItem("token");
     setUser(null);
     setToken(null);
     router.push("/");

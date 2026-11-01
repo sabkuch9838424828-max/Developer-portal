@@ -1218,9 +1218,9 @@ def list_talent_attributions(
             "team_logo_url": team.logo_url if team else None,
             "title": ach.title if ach else "",
             "category": ach.category if ach else "",
-            "issuer": ach.issuer if ach else None,
-            "date_awarded": ach.date_awarded.isoformat() if ach and ach.date_awarded else None,
-            "role_in_project": attr.role_in_project,
+            "issuer": getattr(ach, "organizer", None) or getattr(ach, "issuing_organization", None) or getattr(ach, "issuer", None),
+            "date_awarded": (ach.date_achieved if isinstance(ach.date_achieved, str) else (ach.date_achieved.isoformat() if ach.date_achieved else None)) if ach and getattr(ach, "date_achieved", None) else None,
+            "role_in_project": getattr(attr, "role_in_achievement", None) or getattr(attr, "role_in_project", "Core Contributor"),
             "attribution_status": attr.attribution_status,
             "attributed_at": attr.created_at.isoformat() if attr.created_at else None
         })

@@ -323,9 +323,9 @@ export default function DiscoverMembersPage() {
                   Technical Expertise ({cand.skills.length})
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {cand.skills.slice(0, 7).map((s) => (
+                  {cand.skills.slice(0, 7).map((s, idx) => (
                     <span
-                      key={s.name}
+                      key={`cand-skill-${s.name}-${idx}`}
                       className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium"
                     >
                       {s.name} <span className="opacity-60 text-[9px]">({s.proficiency.charAt(0)})</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import { apiRequest } from "@/lib/api";
 import { Camera, Trash2, Upload, Crop, ShieldCheck, CheckCircle2, Image as ImageIcon, X } from "lucide-react";
 
 interface AvatarEditorProps {
@@ -62,21 +63,11 @@ export default function AvatarEditor({
     formData.append("file", tempFile);
 
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`http://localhost:8000/api/v1${apiUrlPrefix}/avatar`, {
+      const data = await apiRequest(`${apiUrlPrefix}/avatar`, {
         method: "POST",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: formData,
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to upload avatar");
-      }
-
-      const data = await res.json();
       const updatedUrl = data.avatar_url;
       setCurrentAvatar(updatedUrl);
       if (onAvatarUpdated) onAvatarUpdated(updatedUrl);
@@ -93,15 +84,10 @@ export default function AvatarEditor({
     if (!confirm("Are you sure you want to remove your profile picture?")) return;
     setUploadingAvatar(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`http://localhost:8000/api/v1${apiUrlPrefix}/avatar`, {
+      await apiRequest(`${apiUrlPrefix}/avatar`, {
         method: "DELETE",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
       });
 
-      if (!res.ok) throw new Error("Failed to remove avatar");
       setCurrentAvatar(null);
       if (onAvatarUpdated) onAvatarUpdated(null);
     } catch (err: any) {
@@ -120,21 +106,11 @@ export default function AvatarEditor({
     formData.append("file", file);
 
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`http://localhost:8000/api/v1${apiUrlPrefix}/cover`, {
+      const data = await apiRequest(`${apiUrlPrefix}/cover`, {
         method: "POST",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: formData,
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to upload cover banner");
-      }
-
-      const data = await res.json();
       setCurrentCover(data.cover_image_url);
       if (onCoverUpdated) onCoverUpdated(data.cover_image_url);
     } catch (err: any) {
@@ -148,15 +124,10 @@ export default function AvatarEditor({
     if (!confirm("Remove cover banner?")) return;
     setUploadingCover(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`http://localhost:8000/api/v1${apiUrlPrefix}/cover`, {
+      await apiRequest(`${apiUrlPrefix}/cover`, {
         method: "DELETE",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
       });
 
-      if (!res.ok) throw new Error("Failed to remove cover banner");
       setCurrentCover(null);
       if (onCoverUpdated) onCoverUpdated(null);
     } catch (err: any) {

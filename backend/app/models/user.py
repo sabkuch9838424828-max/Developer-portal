@@ -30,3 +30,9 @@ class User(Base):
     notification_preference = relationship("NotificationPreference", back_populates="user", uselist=False, cascade="all, delete-orphan")
     uploaded_documents = relationship("UploadedDocument", back_populates="user", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="user")
+
+    @property
+    def avatar_url(self):
+        if self.talent_profile:
+            return getattr(self.talent_profile, "profile_photo_url", None)
+        return None

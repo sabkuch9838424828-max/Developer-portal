@@ -62,6 +62,14 @@ class Achievement(Base):
         order_by="desc(AchievementVerificationRecord.created_at)"
     )
 
+    @property
+    def issuer(self):
+        return self.issuing_organization
+
+    @property
+    def date_awarded(self):
+        return self.date_achieved
+
 class AchievementEvidence(Base):
     """Supporting proof, certification PDF, or medal badge for an achievement."""
     __tablename__ = "achievement_evidences"
@@ -123,6 +131,14 @@ class TeamAchievement(Base):
     related_project = relationship("Project")
     contributors = relationship("TeamAchievementContributor", back_populates="team_achievement", cascade="all, delete-orphan")
 
+    @property
+    def issuer(self):
+        return self.organizer
+
+    @property
+    def date_awarded(self):
+        return self.date_achieved
+
 class TeamAchievementContributor(Base):
     """Team member attribution for team achievement with member acceptance workflow."""
     __tablename__ = "team_achievement_contributors"
@@ -138,3 +154,7 @@ class TeamAchievementContributor(Base):
 
     team_achievement = relationship("TeamAchievement", back_populates="contributors")
     talent_profile = relationship("TalentProfile", back_populates="team_attributions")
+
+    @property
+    def role_in_project(self):
+        return self.role_in_achievement

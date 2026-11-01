@@ -213,7 +213,7 @@ def get_team_detail(
             "title": m.title or p.headline or "Engineer",
             "specialization": p.specialization,
             "location": p.location,
-            "profile_photo_url": p.profile_picture_url or (p.user.avatar_url if p.user else None),
+            "profile_photo_url": getattr(p, "profile_photo_url", None) or (getattr(p.user, "avatar_url", None) if p and p.user else None),
             "skills": member_skills,
             "joined_at": m.joined_at
         })

@@ -20,6 +20,16 @@ os.makedirs(EVIDENCE_STORAGE_DIR, exist_ok=True)
 def utc_now():
     return datetime.now(timezone.utc)
 
+def _safe_date_str(val):
+    if not val:
+        return None
+    if isinstance(val, str):
+        return val
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return str(val)
+
+
 class AchievementService:
     """Core domain service for developer & team achievements, evidence storage, and verification workflows."""
 
@@ -403,7 +413,7 @@ class AchievementService:
             "description": ach.description,
             "issuer": ach.issuing_organization,
             "event_name": ach.event_name,
-            "date_awarded": ach.date_achieved.isoformat() if ach.date_achieved else None,
+            "date_awarded": _safe_date_str(ach.date_achieved),
             "position_award": ach.position_award,
             "credential_url": ach.certificate_url,
             "verification_url": ach.verification_url,
@@ -432,7 +442,7 @@ class AchievementService:
                     "contributor_id": c.id,
                     "talent_profile_id": c.talent_profile_id,
                     "talent_name": p.name if p else "Member",
-                    "avatar_url": p.profile_picture_url or (p.user.avatar_url if p and p.user else None),
+                    "avatar_url": getattr(p, "profile_photo_url", None) or (getattr(p.user, "avatar_url", None) if p and p.user else None),
                     "role_in_project": c.role_in_achievement,
                     "attribution_status": c.attribution_status
                 })
@@ -445,7 +455,7 @@ class AchievementService:
             "description": ach.description,
             "issuer": ach.organizer,
             "event_name": ach.event_name,
-            "date_awarded": ach.date_achieved.isoformat() if ach.date_achieved else None,
+            "date_awarded": _safe_date_str(ach.date_achieved),
             "position_award": ach.position_award,
             "credential_url": ach.certificate_url,
             "verification_url": ach.verification_url,

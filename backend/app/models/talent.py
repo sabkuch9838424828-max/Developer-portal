@@ -45,6 +45,10 @@ class TalentProfile(Base):
     invitations = relationship("Invitation", back_populates="talent_profile", cascade="all, delete-orphan")
     team_memberships = relationship("TeamMember", back_populates="talent_profile", cascade="all, delete-orphan")
 
+    @property
+    def profile_picture_url(self):
+        return self.profile_photo_url
+
 class Team(Base):
     __tablename__ = "teams"
 

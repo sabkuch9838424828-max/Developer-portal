@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { apiRequest } from "@/lib/api";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -29,16 +30,8 @@ export default function IdentityVerificationCenterPage() {
 
   const fetchIdentityStatus = async () => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch("http://localhost:8000/api/v1/talent/identity/status", {
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setIdentityData(data);
-      }
+      const data = await apiRequest("/talent/identity/status");
+      setIdentityData(data);
     } catch (e) {
       console.error("Failed to load identity status", e);
     } finally {
@@ -53,16 +46,10 @@ export default function IdentityVerificationCenterPage() {
   const handleGrantConsent = async () => {
     setActionLoading(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch("http://localhost:8000/api/v1/talent/identity/consent", {
+      await apiRequest("/talent/identity/consent", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ consent_type: "government_identity_verification" }),
       });
-      if (!res.ok) throw new Error("Failed to record consent");
       await fetchIdentityStatus();
     } catch (e: any) {
       alert(e.message || "Failed to record consent");
@@ -75,14 +62,9 @@ export default function IdentityVerificationCenterPage() {
     if (!confirm("Withdrawing consent will clear your verified badge and identity credentials. Proceed?")) return;
     setActionLoading(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch("http://localhost:8000/api/v1/talent/identity/consent/withdraw", {
+      await apiRequest("/talent/identity/consent/withdraw", {
         method: "POST",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
       });
-      if (!res.ok) throw new Error("Failed to withdraw consent");
       await fetchIdentityStatus();
     } catch (e: any) {
       alert(e.message || "Failed to withdraw consent");
@@ -94,24 +76,13 @@ export default function IdentityVerificationCenterPage() {
   const handleInitiateSession = async () => {
     setActionLoading(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch("http://localhost:8000/api/v1/talent/identity/session", {
+      await apiRequest("/talent/identity/session", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({
           provider: selectedProvider,
           verification_method: selectedMethod,
         }),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to initialize verification session");
-      }
-
       await fetchIdentityStatus();
     } catch (e: any) {
       alert(e.message || "Failed to initiate verification session");
@@ -123,17 +94,10 @@ export default function IdentityVerificationCenterPage() {
   const handleSimulateDecision = async (decision: "verified" | "failed", reason?: string) => {
     setActionLoading(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch("http://localhost:8000/api/v1/talent/identity/simulate", {
+      await apiRequest("/talent/identity/simulate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ decision, reason }),
       });
-
-      if (!res.ok) throw new Error("Simulation failed");
       await fetchIdentityStatus();
     } catch (e: any) {
       alert(e.message || "Failed to simulate verification");
@@ -144,18 +108,11 @@ export default function IdentityVerificationCenterPage() {
 
   const handleToggleDisclosure = async (newVal: boolean) => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch("http://localhost:8000/api/v1/talent/identity/disclosure", {
+      await apiRequest("/talent/identity/disclosure", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ disclosed: newVal }),
       });
-      if (res.ok) {
-        setIdentityData((prev: any) => ({ ...prev, disclosed_to_recruiters: newVal }));
-      }
+      setIdentityData((prev: any) => ({ ...prev, disclosed_to_recruiters: newVal }));
     } catch (e) {
       console.error(e);
     }

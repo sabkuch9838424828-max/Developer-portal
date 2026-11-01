@@ -198,9 +198,9 @@ export default function TalentOverviewPage() {
 
                 {/* Matched skills tags */}
                 <div className="flex flex-wrap gap-1.5 pt-1">
-                  {opp.matched_mandatory_skills.map((s: string) => (
+                  {opp.matched_mandatory_skills.map((s: string, idx: number) => (
                     <span
-                      key={s}
+                      key={`${s}-${idx}`}
                       className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 font-semibold"
                     >
                       &check; {s}
@@ -267,9 +267,9 @@ export default function TalentOverviewPage() {
                   {proj.description}
                 </p>
                 <div className="flex flex-wrap gap-1.5 pt-2">
-                  {proj.technologies.map((t: string) => (
+                  {proj.technologies.map((t: string, idx: number) => (
                     <span
-                      key={t}
+                      key={`${t}-${idx}`}
                       className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-white/[0.06]"
                     >
                       {t}

@@ -311,9 +311,9 @@ export default function TalentProjectsPage() {
               )}
 
               <div className="flex flex-wrap gap-1.5 pt-1">
-                {proj.technologies.map((t) => (
+                {proj.technologies.map((t, idx) => (
                   <span
-                    key={t}
+                    key={`${t}-${idx}`}
                     className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 font-semibold"
                   >
                     {t}
