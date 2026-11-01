@@ -118,49 +118,46 @@ export function Navbar() {
           {/* Desktop Navigation Links */}
           <div className="hidden md:flex items-center gap-1 p-1 rounded-full border border-slate-200/80 dark:border-white/[0.07] bg-slate-100/40 dark:bg-white/[0.02]">
             <Link
-              href="/"
-              onClick={(e) => {
-                if (pathname === "/") {
-                  e.preventDefault();
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }
-              }}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
-                pathname === "/"
-                  ? "bg-white dark:bg-white/10 text-slate-900 dark:text-white shadow-sm font-semibold"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
+              href="/#about"
+              onClick={(e) => handleNavScroll(e, "about")}
+              className="px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
             >
-              Intelligence
+              About
             </Link>
             <Link
-              href="/#matching-engine"
-              onClick={(e) => handleNavScroll(e, "matching-engine")}
-              className="px-3.5 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all flex items-center gap-1"
+              href="/#skills"
+              onClick={(e) => handleNavScroll(e, "skills")}
+              className="px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
             >
-              <Sparkles size={12} className="text-cyan-500" />
-              AI Matching
+              Skills
             </Link>
             <Link
-              href="/#skill-taxonomy"
-              onClick={(e) => handleNavScroll(e, "skill-taxonomy")}
-              className="px-3.5 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
+              href="/#projects"
+              onClick={(e) => handleNavScroll(e, "projects")}
+              className="px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
             >
-              Taxonomy
+              Projects
             </Link>
             <Link
-              href="/#team-collective"
-              onClick={(e) => handleNavScroll(e, "team-collective")}
-              className="px-3.5 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
+              href="/#team"
+              onClick={(e) => handleNavScroll(e, "team")}
+              className="px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
             >
-              Teams
+              Team
             </Link>
             <Link
-              href="/#recruiter-workflow"
-              onClick={(e) => handleNavScroll(e, "recruiter-workflow")}
-              className="px-3.5 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
+              href="/#achievements"
+              onClick={(e) => handleNavScroll(e, "achievements")}
+              className="px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
             >
-              Recruiters
+              Achievements
+            </Link>
+            <Link
+              href="/#contact"
+              onClick={(e) => handleNavScroll(e, "contact")}
+              className="px-3 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all"
+            >
+              Contact
             </Link>
           </div>
 
@@ -274,48 +271,57 @@ export function Navbar() {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden surface-elevated border-t border-slate-200 dark:border-white/10 px-5 pt-4 pb-6 space-y-3 animate-in slide-in-from-top-4 duration-200">
+        <div className="md:hidden surface-elevated border-t border-slate-200 dark:border-white/10 px-5 pt-4 pb-6 space-y-2 animate-in slide-in-from-top-4 duration-200">
           <Link
-            href="/"
-            onClick={(e) => {
-              setMobileMenuOpen(false);
-              if (pathname === "/") {
-                e.preventDefault();
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }
-            }}
-            className="block px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200"
+            href="/#about"
+            onClick={(e) => handleMobileNavScroll(e, "about")}
+            className="block px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-violet-500"
           >
-            Platform Intelligence
+            About Us
           </Link>
           <Link
-            href="/#matching-engine"
-            onClick={(e) => handleMobileNavScroll(e, "matching-engine")}
-            className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400"
+            href="/#skills"
+            onClick={(e) => handleMobileNavScroll(e, "skills")}
+            className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-violet-500"
           >
-            5-Pillar Matching Engine
+            Skills & Stack
           </Link>
           <Link
-            href="/#skill-taxonomy"
-            onClick={(e) => handleMobileNavScroll(e, "skill-taxonomy")}
-            className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400"
+            href="/#projects"
+            onClick={(e) => handleMobileNavScroll(e, "projects")}
+            className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-violet-500"
           >
-            Skill Taxonomy
+            Featured Projects
           </Link>
           <Link
-            href="/#team-collective"
-            onClick={(e) => handleMobileNavScroll(e, "team-collective")}
-            className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400"
+            href="/#team"
+            onClick={(e) => handleMobileNavScroll(e, "team")}
+            className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-violet-500"
           >
-            Team Collaboration Matrix
+            Team Members
           </Link>
           <Link
-            href="/#recruiter-workflow"
-            onClick={(e) => handleMobileNavScroll(e, "recruiter-workflow")}
-            className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400"
+            href="/#achievements"
+            onClick={(e) => handleMobileNavScroll(e, "achievements")}
+            className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-violet-500"
           >
-            Recruiter Workflow
+            Achievements & Certifications
           </Link>
+          <Link
+            href="/#contact"
+            onClick={(e) => handleMobileNavScroll(e, "contact")}
+            className="block px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-violet-500"
+          >
+            Contact & Hire Us
+          </Link>
+          <a
+            href="/team-sample-cv.pdf"
+            download="NEXORA-Team-Portfolio-CV.pdf"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 text-xs font-mono font-bold text-violet-600 dark:text-violet-400"
+          >
+            ↓ Download Team CV
+          </a>
 
           <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex flex-col gap-2">
             {user ? (
