@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { apiRequest } from "@/lib/api";
-import { Zap, Plus, Trash2, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Zap, Plus, Trash2, CheckCircle2, ShieldCheck, Terminal, Layers } from "lucide-react";
 
 interface SkillItem {
   id: number;
@@ -76,7 +76,7 @@ export default function TalentSkillsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-cyan-600 border-t-transparent" />
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-cyan-600 border-t-transparent" />
       </div>
     );
   }
@@ -85,19 +85,25 @@ export default function TalentSkillsPage() {
 
   return (
     <div className="space-y-8 max-w-4xl">
+      
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-          Categorized Skills & Competencies
+        <div className="flex items-center gap-2 text-[11px] font-mono text-cyan-600 dark:text-cyan-400 font-bold uppercase tracking-wider mb-1">
+          <span className="status-pip bg-cyan-500" />
+          <span>TECHNICAL ONTOLOGY REPOSITORY</span>
+        </div>
+        <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+          Categorized Skills & Proficiency
         </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-          Skills are mapped to our centralized ontology with aliases and relational intelligence.
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
+          Skills are mapped to NEXORA&apos;s 12-category ontology with relational intelligence and 4-tier proficiency tracking.
         </p>
       </div>
 
       {/* Add Skill Box */}
-      <form onSubmit={handleAddSkill} className="p-6 rounded-3xl glass-panel border border-slate-200 dark:border-white/10 space-y-4">
-        <h2 className="text-sm font-bold text-slate-900 dark:text-white">
-          Add Technical Skill
+      <form onSubmit={handleAddSkill} className="p-6 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D1017] space-y-4">
+        <h2 className="text-xs font-mono font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+          Index New Technical Competency
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div className="sm:col-span-1">
@@ -106,8 +112,8 @@ export default function TalentSkillsPage() {
               required
               value={newSkillName}
               onChange={(e) => setNewSkillName(e.target.value)}
-              placeholder="e.g. PyTorch, Docker"
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-slate-900/70 text-xs text-slate-900 dark:text-white"
+              placeholder="e.g. PyTorch, Tokio"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#121722] text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
             />
           </div>
 
@@ -115,7 +121,7 @@ export default function TalentSkillsPage() {
             <select
               value={newSkillCategory}
               onChange={(e) => setNewSkillCategory(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-slate-900/70 text-xs text-slate-900 dark:text-white"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#121722] text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
             >
               {categories.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -127,7 +133,7 @@ export default function TalentSkillsPage() {
             <select
               value={newSkillProficiency}
               onChange={(e) => setNewSkillProficiency(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-slate-900/70 text-xs text-slate-900 dark:text-white"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#121722] text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-cyan-500"
             >
               <option value="Beginner">Beginner</option>
               <option value="Intermediate">Intermediate</option>
@@ -140,9 +146,9 @@ export default function TalentSkillsPage() {
             <button
               type="submit"
               disabled={isAdding}
-              className="w-full py-2 rounded-xl text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 shadow-sm flex items-center justify-center gap-1.5"
+              className="w-full py-2.5 rounded-xl text-xs font-mono font-semibold text-white bg-cyan-600 hover:bg-cyan-500 transition-colors shadow-sm flex items-center justify-center gap-1.5"
             >
-              <Plus size={14} /> {isAdding ? "Adding..." : "Add to Profile"}
+              <Plus size={14} /> {isAdding ? "INDEXING..." : "COMMIT SKILL"}
             </button>
           </div>
         </div>
@@ -156,26 +162,29 @@ export default function TalentSkillsPage() {
 
           return (
             <div key={cat} className="space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">
-                {cat} ({catSkills.length})
-              </h3>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-1.5">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {cat} ({catSkills.length})
+                </h3>
+                <span className="text-[10px] font-mono text-cyan-500">CATEGORY_VERIFIED</span>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {catSkills.map((skill) => (
                   <div
                     key={skill.id}
-                    className="p-3.5 rounded-2xl glass-panel border border-slate-200 dark:border-white/5 flex items-center justify-between gap-2"
+                    className="p-3.5 rounded-xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D1017] hover:border-cyan-500/30 transition-colors flex items-center justify-between gap-2"
                   >
                     <div>
-                      <div className="font-bold text-xs text-slate-900 dark:text-white">
+                      <div className="font-bold text-xs font-mono text-slate-900 dark:text-white">
                         {skill.name}
                       </div>
                       <div className="text-[10px] text-slate-500 font-mono">
-                        {skill.proficiency} • {skill.experience_years}y exp
+                        {skill.proficiency} &bull; {skill.experience_years}y exp
                       </div>
                     </div>
                     <button
                       onClick={() => handleDeleteSkill(skill.id)}
-                      className="text-slate-400 hover:text-rose-500 p-1"
+                      className="text-slate-400 hover:text-rose-500 p-1 transition-colors"
                       title="Remove skill"
                     >
                       <Trash2 size={13} />
@@ -187,6 +196,7 @@ export default function TalentSkillsPage() {
           );
         })}
       </div>
+
     </div>
   );
 }
