@@ -1,11 +1,14 @@
 function getBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  }
   if (typeof window !== "undefined") {
     const host = window.location.hostname;
-    if (host && host !== "localhost" && host !== "127.0.0.1") {
+    if (host && host !== "localhost" && host !== "127.0.0.1" && !host.includes("vercel.app")) {
       return `http://${host}:8000/api/v1`;
     }
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  return "http://localhost:8000/api/v1";
 }
 
 export async function apiRequest<T = any>(
