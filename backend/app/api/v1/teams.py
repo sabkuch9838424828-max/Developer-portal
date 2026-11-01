@@ -1,8 +1,11 @@
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
+from app.services.media_service import MediaProcessingService
+from app.services.achievement_service import AchievementService
+from app.models.achievement import TeamAchievement, TeamAchievementContributor
 
 from app.api.deps import get_db, get_current_user, require_talent
 from app.models.user import User
@@ -210,7 +213,7 @@ def get_team_detail(
             "title": m.title or p.headline or "Engineer",
             "specialization": p.specialization,
             "location": p.location,
-            "profile_photo_url": p.profile_photo_url,
+            "profile_photo_url": p.profile_picture_url or (p.user.avatar_url if p.user else None),
             "skills": member_skills,
             "joined_at": m.joined_at
         })
@@ -238,6 +241,7 @@ def get_team_detail(
         "domain": team.domain,
         "description": team.description,
         "logo_url": team.logo_url,
+        "cover_image_url": team.cover_image_url,
         "project_goals": team.project_goals,
         "required_skills": team.required_skills or [],
         "visibility": team.visibility,
@@ -835,3 +839,280 @@ def match_team_with_job(
         raise HTTPException(status_code=404, detail="Job opportunity not found")
 
     return TeamService.calculate_team_job_match(team, job, db)
+
+
+# ==========================================
+# MODULE 2: TEAM BRANDING & VISUAL IDENTITY
+# ==========================================
+
+@router.post("/teams/{team_id}/logo")
+async def upload_team_logo(
+    team_id: int,
+    file: UploadFile = File(...),
+    crop_x: Optional[float] = Form(None),
+    crop_y: Optional[float] = Form(None),
+    crop_width: Optional[float] = Form(None),
+    crop_height: Optional[float] = Form(None),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    profile_id = current_user.talent_profile.id if current_user.talent_profile else None
+    role = get_user_team_role(team, current_user.id, profile_id)
+    if role not in ["Owner", "Admin"]:
+        raise HTTPException(status_code=403, detail="Only team owners or admins can update team branding")
+
+    crop_data = None
+    if all(v is not None for v in [crop_x, crop_y, crop_width, crop_height]):
+        crop_data = {"x": crop_x, "y": crop_y, "width": crop_width, "height": crop_height}
+
+    logo_url = await MediaProcessingService.process_and_save_avatar(
+        file=file,
+        user_id=f"team_{team.id}",
+        crop_data=crop_data,
+        old_avatar_url=team.logo_url
+    )
+
+    team.logo_url = logo_url
+    db.commit()
+
+    return {
+        "success": True,
+        "logo_url": logo_url,
+        "message": "Team logo uploaded and processed successfully."
+    }
+
+@router.delete("/teams/{team_id}/logo")
+def remove_team_logo(
+    team_id: int,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    profile_id = current_user.talent_profile.id if current_user.talent_profile else None
+    role = get_user_team_role(team, current_user.id, profile_id)
+    if role not in ["Owner", "Admin"]:
+        raise HTTPException(status_code=403, detail="Only team owners or admins can remove team branding")
+
+    MediaProcessingService.delete_file_safely(team.logo_url)
+    team.logo_url = None
+    db.commit()
+
+    return {"success": True, "message": "Team logo removed successfully."}
+
+@router.post("/teams/{team_id}/cover")
+async def upload_team_cover(
+    team_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    profile_id = current_user.talent_profile.id if current_user.talent_profile else None
+    role = get_user_team_role(team, current_user.id, profile_id)
+    if role not in ["Owner", "Admin"]:
+        raise HTTPException(status_code=403, detail="Only team owners or admins can update team cover")
+
+    cover_url = await MediaProcessingService.process_and_save_cover(
+        file=file,
+        entity_type="team",
+        entity_id=team.id,
+        old_cover_url=team.cover_image_url
+    )
+
+    team.cover_image_url = cover_url
+    db.commit()
+
+    return {
+        "success": True,
+        "cover_image_url": cover_url,
+        "message": "Team cover banner updated successfully."
+    }
+
+@router.delete("/teams/{team_id}/cover")
+def remove_team_cover(
+    team_id: int,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    profile_id = current_user.talent_profile.id if current_user.talent_profile else None
+    role = get_user_team_role(team, current_user.id, profile_id)
+    if role not in ["Owner", "Admin"]:
+        raise HTTPException(status_code=403, detail="Only team owners or admins can remove team cover")
+
+    MediaProcessingService.delete_file_safely(team.cover_image_url)
+    team.cover_image_url = None
+    db.commit()
+
+    return {"success": True, "message": "Team cover banner removed successfully."}
+
+
+# ==========================================
+# MODULE 4: TEAM ACHIEVEMENTS & CONTRIBUTIONS
+# ==========================================
+
+@router.post("/teams/{team_id}/achievements")
+def create_team_achievement(
+    team_id: int,
+    payload: dict = Body(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    profile_id = current_user.talent_profile.id if current_user.talent_profile else None
+    role = get_user_team_role(team, current_user.id, profile_id)
+    if role not in ["Owner", "Admin"]:
+        raise HTTPException(status_code=403, detail="Only team owners or admins can record team achievements")
+
+    ach = AchievementService.create_team_achievement(
+        team=team,
+        creator_user_id=current_user.id,
+        data=payload,
+        db=db
+    )
+
+    return {
+        "success": True,
+        "achievement": AchievementService.serialize_team_achievement(ach)
+    }
+
+@router.get("/teams/{team_id}/achievements")
+def list_team_achievements(
+    team_id: str,
+    db: Session = Depends(get_db)
+):
+    if team_id.isdigit():
+        team = db.query(Team).filter(Team.id == int(team_id)).first()
+    else:
+        team = db.query(Team).filter(Team.slug == team_id).first()
+
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    achievements = AchievementService.get_team_achievements(team.id, db=db)
+    return [AchievementService.serialize_team_achievement(a) for a in achievements]
+
+@router.patch("/teams/{team_id}/achievements/{ach_id}")
+def update_team_achievement(
+    team_id: int,
+    ach_id: int,
+    payload: dict = Body(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    profile_id = current_user.talent_profile.id if current_user.talent_profile else None
+    role = get_user_team_role(team, current_user.id, profile_id)
+    if role not in ["Owner", "Admin"]:
+        raise HTTPException(status_code=403, detail="Only team owners or admins can edit team achievements")
+
+    ach = db.query(TeamAchievement).filter(
+        TeamAchievement.id == ach_id,
+        TeamAchievement.team_id == team.id
+    ).first()
+
+    if not ach:
+        raise HTTPException(status_code=404, detail="Team achievement not found")
+
+    for field in ["title", "description", "category", "issuer", "credential_url", "evidence_url", "is_public"]:
+        if field in payload:
+            setattr(ach, field, payload[field])
+
+    if "date_awarded" in payload and payload["date_awarded"]:
+        try:
+            ach.date_awarded = datetime.fromisoformat(payload["date_awarded"])
+        except Exception:
+            pass
+
+    db.commit()
+    db.refresh(ach)
+
+    return {
+        "success": True,
+        "achievement": AchievementService.serialize_team_achievement(ach)
+    }
+
+@router.delete("/teams/{team_id}/achievements/{ach_id}")
+def delete_team_achievement(
+    team_id: int,
+    ach_id: int,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    profile_id = current_user.talent_profile.id if current_user.talent_profile else None
+    role = get_user_team_role(team, current_user.id, profile_id)
+    if role not in ["Owner", "Admin"]:
+        raise HTTPException(status_code=403, detail="Only team owners or admins can delete team achievements")
+
+    ach = db.query(TeamAchievement).filter(
+        TeamAchievement.id == ach_id,
+        TeamAchievement.team_id == team.id
+    ).first()
+
+    if not ach:
+        raise HTTPException(status_code=404, detail="Team achievement not found")
+
+    db.delete(ach)
+    db.commit()
+
+    return {"success": True, "message": "Team achievement deleted successfully."}
+
+@router.post("/teams/{team_id}/achievements/{ach_id}/attribute")
+def attribute_team_member(
+    team_id: int,
+    ach_id: int,
+    payload: dict = Body(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    profile_id = current_user.talent_profile.id if current_user.talent_profile else None
+    role = get_user_team_role(team, current_user.id, profile_id)
+    if role not in ["Owner", "Admin"]:
+        raise HTTPException(status_code=403, detail="Only team owners or admins can attribute contributors")
+
+    member_talent_id = payload.get("talent_profile_id")
+    role_in_project = payload.get("role_in_project", "Core Contributor")
+
+    if not member_talent_id:
+        raise HTTPException(status_code=400, detail="talent_profile_id is required")
+
+    contributor = AchievementService.attribute_team_member(
+        team_achievement_id=ach_id,
+        talent_profile_id=member_talent_id,
+        role_in_project=role_in_project,
+        db=db
+    )
+
+    return {
+        "success": True,
+        "contributor_id": contributor.id,
+        "attribution_status": contributor.attribution_status,
+        "message": "Attribution invitation sent to member."
+    }

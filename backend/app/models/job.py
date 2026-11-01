@@ -28,6 +28,7 @@ class Job(Base):
     responsibilities = Column(Text, nullable=True)
     additional_requirements = Column(Text, nullable=True)
     strict_eligibility = Column(Boolean, default=True)  # If true, missing any mandatory skill disqualifies candidate
+    identity_requirement = Column(String(50), default="none")  # "none", "recommended", "required"
     status = Column(String(50), default="draft")  # "draft", "published", "paused", "closed"
     created_at = Column(DateTime, default=utc_now)
     published_at = Column(DateTime, nullable=True)

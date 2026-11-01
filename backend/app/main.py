@@ -81,6 +81,30 @@ def on_startup():
             except Exception:
                 pass
 
+        # Safe migration for Identity & Branding columns
+        for col_name, col_type in [
+            ("cover_image_url", "VARCHAR(500)"),
+            ("identity_status", "VARCHAR(50) DEFAULT 'not_started'"),
+            ("identity_verified", "BOOLEAN DEFAULT 0"),
+        ]:
+            try:
+                conn.execute(text(f"ALTER TABLE talent_profiles ADD COLUMN {col_name} {col_type}"))
+                conn.commit()
+            except Exception:
+                pass
+
+        try:
+            conn.execute(text("ALTER TABLE teams ADD COLUMN cover_image_url VARCHAR(500)"))
+            conn.commit()
+        except Exception:
+            pass
+
+        try:
+            conn.execute(text("ALTER TABLE jobs ADD COLUMN identity_requirement VARCHAR(50) DEFAULT 'none'"))
+            conn.commit()
+        except Exception:
+            pass
+
     db = SessionLocal()
     try:
         run_seed(db)
@@ -125,6 +149,12 @@ async def websocket_endpoint(websocket: WebSocket, user_id: int):
             await websocket.send_json({"type": "pong", "client_data": data})
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket, user_id)
+
+# Static storage mount
+os.makedirs(settings.STORAGE_DIR, exist_ok=True)
+for subdir in ["avatars", "covers", "teams", "evidence", "resumes"]:
+    os.makedirs(os.path.join(settings.STORAGE_DIR, subdir), exist_ok=True)
+app.mount("/storage/uploads", StaticFiles(directory=settings.STORAGE_DIR), name="storage_uploads")
 
 # Include API v1 routers
 app.include_router(auth_router, prefix=settings.API_V1_STR)

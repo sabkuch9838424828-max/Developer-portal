@@ -1,7 +1,7 @@
 import os
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Body, Request
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_talent
@@ -14,8 +14,12 @@ from app.models.match import JobMatch
 from app.models.application import Application, Invitation
 from app.models.notification import Notification
 from app.models.resume import Resume, ResumeExtraction, ResumeAccessLog
+from app.models.achievement import Achievement, AchievementEvidence, TeamAchievementContributor
 from app.ai.services.skill_normalizer import SkillNormalizerService
 from app.services.resume_service import ResumeIntelligenceService
+from app.services.media_service import MediaProcessingService
+from app.services.achievement_service import AchievementService
+from app.services.identity_service import IdentityVerificationService
 from app.matching.engine import HybridMatchingEngine
 from app.schemas.talent import (
     TalentProfileUpdate, SkillItem, ProjectCreateRequest,
@@ -102,6 +106,10 @@ def get_talent_profile(
         "preferred_employment_type": profile.preferred_employment_type,
         "remote_preference": profile.remote_preference,
         "compensation_expectation": profile.compensation_expectation,
+        "profile_picture_url": profile.profile_picture_url or current_user.avatar_url,
+        "cover_image_url": profile.cover_image_url,
+        "identity_status": profile.identity_status or "not_started",
+        "identity_verified": profile.identity_verified or False,
         "contact_preferences": profile.contact_preferences or {},
         "skills": skills,
         "created_at": profile.created_at
@@ -913,3 +921,435 @@ def get_resume_enriched_matches(
         })
 
     return results
+
+
+# ==========================================
+# MODULE 1: INDIVIDUAL PROFILE IDENTITY & PICTURES
+# ==========================================
+
+@router.post("/profile/avatar")
+async def upload_profile_avatar(
+    file: UploadFile = File(...),
+    crop_x: Optional[float] = Form(None),
+    crop_y: Optional[float] = Form(None),
+    crop_width: Optional[float] = Form(None),
+    crop_height: Optional[float] = Form(None),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Talent profile not found")
+
+    crop_data = None
+    if all(v is not None for v in [crop_x, crop_y, crop_width, crop_height]):
+        crop_data = {
+            "x": crop_x,
+            "y": crop_y,
+            "width": crop_width,
+            "height": crop_height
+        }
+
+    avatar_url = await MediaProcessingService.process_and_save_avatar(
+        file=file,
+        user_id=current_user.id,
+        crop_data=crop_data,
+        old_avatar_url=current_user.avatar_url
+    )
+
+    current_user.avatar_url = avatar_url
+    profile.profile_picture_url = avatar_url
+    db.commit()
+
+    return {
+        "success": True,
+        "avatar_url": avatar_url,
+        "message": "Profile picture updated and optimized successfully."
+    }
+
+@router.delete("/profile/avatar")
+def remove_profile_avatar(
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Talent profile not found")
+
+    MediaProcessingService.delete_file_safely(current_user.avatar_url)
+    current_user.avatar_url = None
+    profile.profile_picture_url = None
+    db.commit()
+
+    return {"success": True, "message": "Profile picture removed successfully."}
+
+@router.post("/profile/cover")
+async def upload_profile_cover(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Talent profile not found")
+
+    cover_url = await MediaProcessingService.process_and_save_cover(
+        file=file,
+        entity_type="talent",
+        entity_id=profile.id,
+        old_cover_url=profile.cover_image_url
+    )
+
+    profile.cover_image_url = cover_url
+    db.commit()
+
+    return {
+        "success": True,
+        "cover_image_url": cover_url,
+        "message": "Profile cover banner updated successfully."
+    }
+
+@router.delete("/profile/cover")
+def remove_profile_cover(
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Talent profile not found")
+
+    MediaProcessingService.delete_file_safely(profile.cover_image_url)
+    profile.cover_image_url = None
+    db.commit()
+
+    return {"success": True, "message": "Cover banner removed successfully."}
+
+
+# ==========================================
+# MODULE 3: INDIVIDUAL ACHIEVEMENT PORTFOLIO
+# ==========================================
+
+@router.post("/achievements")
+def create_achievement(
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Talent profile not found")
+
+    achievement = AchievementService.create_individual_achievement(
+        talent_profile=profile,
+        data=payload,
+        db=db
+    )
+    return {
+        "success": True,
+        "achievement": AchievementService.serialize_achievement(achievement)
+    }
+
+@router.get("/achievements")
+def list_achievements(
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Talent profile not found")
+
+    achievements = AchievementService.get_talent_achievements(profile.id, db=db)
+    return [AchievementService.serialize_achievement(a) for a in achievements]
+
+@router.get("/achievements/{achievement_id}")
+def get_achievement(
+    achievement_id: int,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    achievement = db.query(Achievement).filter(
+        Achievement.id == achievement_id,
+        Achievement.talent_profile_id == profile.id
+    ).first()
+
+    if not achievement:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+
+    return AchievementService.serialize_achievement(achievement)
+
+@router.patch("/achievements/{achievement_id}")
+def update_achievement(
+    achievement_id: int,
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    achievement = AchievementService.update_individual_achievement(
+        achievement_id=achievement_id,
+        talent_profile=profile,
+        data=payload,
+        db=db
+    )
+    return {
+        "success": True,
+        "achievement": AchievementService.serialize_achievement(achievement)
+    }
+
+@router.delete("/achievements/{achievement_id}")
+def delete_achievement(
+    achievement_id: int,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    AchievementService.delete_individual_achievement(
+        achievement_id=achievement_id,
+        talent_profile=profile,
+        db=db
+    )
+    return {"success": True, "message": "Achievement removed successfully."}
+
+@router.post("/achievements/{achievement_id}/evidence")
+async def add_achievement_evidence(
+    achievement_id: int,
+    title: str = Form("Credential Certificate / Evidence"),
+    evidence_type: str = Form("certificate"),
+    external_url: Optional[str] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    achievement = db.query(Achievement).filter(
+        Achievement.id == achievement_id,
+        Achievement.talent_profile_id == profile.id
+    ).first()
+
+    if not achievement:
+        raise HTTPException(status_code=404, detail="Achievement not found")
+
+    file_url = None
+    file_type = "external_link"
+    file_size_bytes = 0
+
+    if file:
+        saved = await MediaProcessingService.save_evidence_document(file, entity_id=achievement.id)
+        file_url = saved["file_url"]
+        file_type = saved["file_type"]
+        file_size_bytes = saved["file_size_bytes"]
+    elif external_url:
+        file_url = external_url
+        file_type = "url"
+    else:
+        raise HTTPException(status_code=400, detail="Must provide either an evidence file or an external URL")
+
+    evidence = AchievementEvidence(
+        achievement_id=achievement.id,
+        title=title,
+        evidence_type=evidence_type,
+        file_url=file_url,
+        file_type=file_type,
+        file_size_bytes=file_size_bytes
+    )
+    db.add(evidence)
+    db.commit()
+    db.refresh(evidence)
+
+    return {
+        "success": True,
+        "evidence": {
+            "id": evidence.id,
+            "title": evidence.title,
+            "evidence_type": evidence.evidence_type,
+            "file_url": evidence.file_url,
+            "file_type": evidence.file_type
+        }
+    }
+
+@router.post("/achievements/{achievement_id}/request-verification")
+def request_achievement_verification(
+    achievement_id: int,
+    payload: Dict[str, Any] = Body(default={}),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    evidence_notes = payload.get("evidence_notes", "")
+    achievement = AchievementService.request_verification(
+        achievement_id=achievement_id,
+        talent_profile=profile,
+        evidence_notes=evidence_notes,
+        db=db
+    )
+    return {
+        "success": True,
+        "verification_status": achievement.verification_status,
+        "message": "Verification request submitted for administrative review."
+    }
+
+# ==========================================
+# MODULE 4: TEAM ATTRIBUTIONS INBOX
+# ==========================================
+
+@router.get("/attributions")
+def list_talent_attributions(
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    if not profile:
+        raise HTTPException(status_code=404, detail="Talent profile not found")
+
+    attributions = db.query(TeamAchievementContributor).filter(
+        TeamAchievementContributor.talent_profile_id == profile.id
+    ).all()
+
+    results = []
+    for attr in attributions:
+        ach = attr.team_achievement
+        team = ach.team if ach else None
+        results.append({
+            "contributor_id": attr.id,
+            "team_achievement_id": ach.id if ach else None,
+            "team_id": team.id if team else None,
+            "team_name": team.name if team else "Team",
+            "team_logo_url": team.logo_url if team else None,
+            "title": ach.title if ach else "",
+            "category": ach.category if ach else "",
+            "issuer": ach.issuer if ach else None,
+            "date_awarded": ach.date_awarded.isoformat() if ach and ach.date_awarded else None,
+            "role_in_project": attr.role_in_project,
+            "attribution_status": attr.attribution_status,
+            "attributed_at": attr.created_at.isoformat() if attr.created_at else None
+        })
+    return results
+
+@router.post("/attributions/{contributor_id}/respond")
+def respond_to_attribution(
+    contributor_id: int,
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    profile = current_user.talent_profile
+    status_choice = payload.get("status")
+    if status_choice not in ["accepted", "declined"]:
+        raise HTTPException(status_code=400, detail="Status must be either 'accepted' or 'declined'")
+
+    contributor = AchievementService.respond_to_attribution(
+        contributor_id=contributor_id,
+        talent_profile=profile,
+        status_choice=status_choice,
+        db=db
+    )
+
+    return {
+        "success": True,
+        "contributor_id": contributor.id,
+        "attribution_status": contributor.attribution_status,
+        "message": f"Team achievement attribution {status_choice}."
+    }
+
+# ==========================================
+# MODULE 6: IDENTITY VERIFICATION CENTER
+# ==========================================
+
+@router.get("/identity/status")
+def get_identity_status(
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    return IdentityVerificationService.get_identity_status(current_user, db=db)
+
+@router.post("/identity/consent")
+def grant_identity_consent(
+    payload: Dict[str, Any] = Body(default={}),
+    request: Request = None,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    client_ip = request.client.host if request and request.client else "127.0.0.1"
+    consent_type = payload.get("consent_type", "government_identity_verification")
+    return IdentityVerificationService.record_consent(
+        user=current_user,
+        consent_type=consent_type,
+        ip_address=client_ip,
+        db=db
+    )
+
+@router.post("/identity/consent/withdraw")
+def withdraw_identity_consent(
+    request: Request = None,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    client_ip = request.client.host if request and request.client else "127.0.0.1"
+    return IdentityVerificationService.withdraw_consent(
+        user=current_user,
+        ip_address=client_ip,
+        db=db
+    )
+
+@router.post("/identity/session")
+def initiate_identity_session(
+    payload: Dict[str, Any] = Body(default={}),
+    request: Request = None,
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    client_ip = request.client.host if request and request.client else "127.0.0.1"
+    provider = payload.get("provider", "digilocker_sandbox")
+    method = payload.get("verification_method", "government_photo_id")
+    return IdentityVerificationService.initiate_verification_session(
+        user=current_user,
+        provider=provider,
+        verification_method=method,
+        ip_address=client_ip,
+        db=db
+    )
+
+@router.post("/identity/simulate")
+def simulate_identity_decision(
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    decision = payload.get("decision", "verified")
+    reason = payload.get("reason")
+    return IdentityVerificationService.simulate_sandbox_decision(
+        user=current_user,
+        decision=decision,
+        reason=reason,
+        db=db
+    )
+
+@router.post("/identity/disclosure")
+def toggle_recruiter_disclosure(
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(require_talent),
+    db: Session = Depends(get_db)
+):
+    disclosed = payload.get("disclosed", True)
+    return IdentityVerificationService.toggle_recruiter_disclosure(
+        user=current_user,
+        disclosed=disclosed,
+        db=db
+    )
+
+
+@router.post("/identity/webhook/{provider}")
+def identity_provider_webhook(
+    provider: str,
+    payload: Dict[str, Any] = Body(...),
+    request: Request = None,
+    db: Session = Depends(get_db)
+):
+    sig = request.headers.get("X-Signature") if request else None
+    return IdentityVerificationService.process_webhook(
+        provider=provider,
+        payload=payload,
+        signature=sig,
+        db=db
+    )

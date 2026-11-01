@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { apiRequest } from "@/lib/api";
-import { User, Save, CheckCircle, ShieldCheck, Terminal, Activity } from "lucide-react";
+import { User, Save, CheckCircle, ShieldCheck, Terminal, Activity, Award, ChevronRight, Lock } from "lucide-react";
 import ResumeIntelligencePanel from "@/components/ResumeIntelligencePanel";
+import AvatarEditor from "@/components/AvatarEditor";
 
 export default function TalentProfileEditorPage() {
   const [profile, setProfile] = useState<any>({
@@ -86,6 +88,64 @@ export default function TalentProfileEditorPage() {
           <CheckCircle size={15} /> <span>PROFILE_PARAMETERS_COMMITTED_SUCCESSFULLY</span>
         </div>
       )}
+
+      {/* Visual Identity & Avatar Management */}
+      <AvatarEditor
+        avatarUrl={profile.profile_picture_url}
+        coverUrl={profile.cover_image_url}
+        name={profile.name}
+        isVerified={profile.identity_verified}
+        onAvatarUpdated={(url) => setProfile((p: any) => ({ ...p, profile_picture_url: url }))}
+        onCoverUpdated={(url) => setProfile((p: any) => ({ ...p, cover_image_url: url }))}
+      />
+
+      {/* Trust & Achievements Hub Navigation */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Link
+          href="/talent/identity"
+          className="p-4 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D1017] hover:border-cyan-500/50 transition group flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-xl border ${profile.identity_verified ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-500" : "bg-slate-100 dark:bg-white/[0.04] border-slate-200 dark:border-white/10 text-slate-400"}`}>
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>Identity Verification Center</span>
+                {profile.identity_verified && (
+                  <span className="text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-400 px-1.5 py-0.2 rounded border border-cyan-500/20">
+                    VERIFIED
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                {profile.identity_verified ? "Government attestation active" : "Verify identity for trust badge"}
+              </p>
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-cyan-500 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+
+        <Link
+          href="/talent/achievements"
+          className="p-4 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D1017] hover:border-violet-500/50 transition group flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-400">
+              <Award size={20} />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900 dark:text-white">
+                Honors & Achievements Portfolio
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                Manage 12 categories & team attributions
+              </p>
+            </div>
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-violet-500 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </div>
 
       {/* AI Resume Intelligence & Autofill Module */}
       <ResumeIntelligencePanel onProfileUpdated={fetchProfile} />

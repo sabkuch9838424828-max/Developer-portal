@@ -51,6 +51,7 @@ class JobCreateRequest(BaseModel):
     responsibilities: Optional[str] = None
     additional_requirements: Optional[str] = None
     strict_eligibility: bool = True
+    identity_requirement: Optional[str] = "none"
     publish_immediately: bool = False
 
 class JobResponse(BaseModel):
@@ -77,6 +78,7 @@ class JobResponse(BaseModel):
     preferred_skills: List[str] = []
     match_count: Optional[int] = 0
     application_count: Optional[int] = 0
+    identity_requirement: Optional[str] = "none"
 
     class Config:
         from_attributes = True
@@ -110,6 +112,11 @@ class CandidateMatchCard(BaseModel):
     resume_visibility: Optional[str] = None
     resume_filename: Optional[str] = None
     evidence_count: int = 0
+    profile_picture_url: Optional[str] = None
+    identity_verified: bool = False
+    identity_status: Optional[str] = "unverified"
+    verified_achievements_count: int = 0
+    top_achievements: List[Dict[str, Any]] = []
 
 class ApplicationPipelineUpdate(BaseModel):
     status: str  # "applied", "under_review", "shortlisted", "interview", "selected", "rejected"

@@ -31,7 +31,10 @@ import {
   Copy,
   Check,
   AlertCircle,
-  Briefcase
+  Briefcase,
+  Award,
+  Camera,
+  Image as ImageIcon
 } from "lucide-react";
 
 interface TeamDetail {
@@ -41,6 +44,7 @@ interface TeamDetail {
   domain: string;
   description?: string;
   logo_url?: string;
+  cover_image_url?: string;
   project_goals?: string;
   required_skills?: string[];
   visibility: string;
@@ -145,7 +149,14 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
 
   // Tabs: "skills" | "matrix" | "members" | "overview" | "invitations" | "matching"
-  const [activeTab, setActiveTab] = useState<"skills" | "matrix" | "members" | "overview" | "invitations" | "matching">("skills");
+  const [activeTab, setActiveTab] = useState<"skills" | "matrix" | "members" | "overview" | "invitations" | "matching" | "achievements">("skills");
+  const [teamAchievements, setTeamAchievements] = useState<any[]>([]);
+  const [showAddTeamAchModal, setShowAddTeamAchModal] = useState(false);
+  const [showAttributeModal, setShowAttributeModal] = useState<any | null>(null);
+  const [selectedMemberForAttr, setSelectedMemberForAttr] = useState<number | null>(null);
+  const [attrRoleInput, setAttrRoleInput] = useState("Core Contributor");
+  const [teamAchForm, setTeamAchForm] = useState({ title: "", category: "Hackathons", issuer: "", description: "", date_awarded: "", credential_url: "" });
+  const [brandingUploading, setBrandingUploading] = useState(false);
 
   // Skills filter
   const [skillFilterType, setSkillFilterType] = useState<"all" | "shared" | "unique">("all");
@@ -196,6 +207,10 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       console.error(err);
     } finally {
       setLoading(false);
+      try {
+        const achData = await apiRequest<any[]>(`/teams/${teamId}/achievements`);
+        setTeamAchievements(achData || []);
+      } catch (e) {}
     }
   };
 
@@ -367,11 +382,62 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
       )}
 
       {/* Header Banner */}
-      <div className="p-6 sm:p-8 rounded-3xl glass-panel border border-cyan-500/20 bg-gradient-to-r from-cyan-50/50 via-slate-50/50 to-blue-50/50 dark:from-cyan-950/20 dark:via-slate-900/40 dark:to-blue-950/20 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-blue-600 text-white flex items-center justify-center font-bold text-2xl shadow-lg shadow-cyan-500/25">
-              {team.name.charAt(0)}
+      <div className="rounded-3xl glass-panel border border-cyan-500/20 bg-white dark:bg-[#0D1017] overflow-hidden space-y-4">
+        {/* Team Cover Banner */}
+        <div className="h-32 sm:h-40 w-full relative bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-slate-200/60 dark:border-white/[0.06] flex items-end p-4">
+          {team.cover_image_url && (
+            <img src={team.cover_image_url.startsWith("http") ? team.cover_image_url : `http://localhost:8000${team.cover_image_url}`} alt="Team Cover" className="absolute inset-0 w-full h-full object-cover" />
+          )}
+          {(team.is_owner || team.is_admin) && (
+            <label className="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 backdrop-blur border border-white/20 text-white text-[11px] font-mono cursor-pointer flex items-center gap-1.5 z-10">
+              <ImageIcon size={13} />
+              <span>{brandingUploading ? "SAVING..." : "EDIT BANNER"}</span>
+              <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                if (!e.target.files?.[0]) return;
+                setBrandingUploading(true);
+                const fd = new FormData();
+                fd.append("file", e.target.files[0]);
+                const token = localStorage.getItem("token");
+                await fetch(`http://localhost:8000/api/v1/teams/${team.id}/cover`, {
+                  method: "POST",
+                  headers: token ? { Authorization: `Bearer ${token}` } : {},
+                  body: fd
+                });
+                setBrandingUploading(false);
+                loadTeamData();
+              }} />
+            </label>
+          )}
+        </div>
+
+        <div className="p-6 sm:p-8 pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 -mt-10 sm:-mt-12 relative z-10">
+          <div className="flex items-end gap-4">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl ring-4 ring-white dark:ring-[#0D1017] bg-gradient-to-tr from-cyan-600 via-indigo-600 to-blue-600 text-white flex items-center justify-center font-bold text-2xl shadow-xl overflow-hidden relative group shrink-0">
+              {team.logo_url ? (
+                <img src={team.logo_url.startsWith("http") ? team.logo_url : `http://localhost:8000${team.logo_url}`} alt={team.name} className="w-full h-full object-cover" />
+              ) : (
+                team.name.charAt(0)
+              )}
+              {(team.is_owner || team.is_admin) && (
+                <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-mono cursor-pointer">
+                  <Camera size={16} />
+                  <span>LOGO</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                    if (!e.target.files?.[0]) return;
+                    setBrandingUploading(true);
+                    const fd = new FormData();
+                    fd.append("file", e.target.files[0]);
+                    const token = localStorage.getItem("token");
+                    await fetch(`http://localhost:8000/api/v1/teams/${team.id}/logo`, {
+                      method: "POST",
+                      headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      body: fd
+                    });
+                    setBrandingUploading(false);
+                    loadTeamData();
+                  }} />
+                </label>
+              )}
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -513,6 +579,18 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
             Invitations Log ({invitations.length})
           </button>
         )}
+
+        <button
+          onClick={() => setActiveTab("achievements")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+            activeTab === "achievements"
+              ? "bg-cyan-600 text-white shadow-sm"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+          }`}
+        >
+          <Award size={15} />
+          Achievements & Honors ({teamAchievements.length})
+        </button>
 
         <button
           onClick={() => setActiveTab("matching")}
@@ -1213,7 +1291,229 @@ export default function TeamDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
-      {/* Invite Member Modal */}
+      
+      {/* ========================================================= */}
+      {/* TAB 7: TEAM ACHIEVEMENTS & ATTRIBUTED HONORS              */}
+      {/* ========================================================= */}
+      {activeTab === "achievements" && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D1017]">
+            <div>
+              <div className="flex items-center gap-2 text-[11px] font-mono text-cyan-600 dark:text-cyan-400 font-bold uppercase tracking-wider mb-1">
+                <span className="status-pip bg-cyan-500" />
+                <span>TEAM HONORS & MILESTONES</span>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                Team Achievement Portfolio ({teamAchievements.length})
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Competitive hackathon wins, research papers, and technical product milestones attributed to this team.
+              </p>
+            </div>
+
+            {(team.is_owner || team.is_admin) && (
+              <button
+                onClick={() => setShowAddTeamAchModal(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-mono font-bold tracking-wider transition shadow-md shadow-cyan-600/20 self-start sm:self-auto"
+              >
+                <Plus size={14} />
+                <span>RECORD TEAM AWARD</span>
+              </button>
+            )}
+          </div>
+
+          {teamAchievements.length === 0 ? (
+            <div className="p-12 text-center rounded-3xl border border-dashed border-slate-200 dark:border-white/10 bg-white/40 dark:bg-[#0D1017]/40 space-y-3">
+              <Award size={36} className="mx-auto text-slate-400 stroke-1" />
+              <h3 className="text-sm font-mono font-bold text-slate-700 dark:text-slate-300">NO TEAM ACHIEVEMENTS RECORDED</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Record hackathons, open source awards, or research demonstrations accomplished by this team.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {teamAchievements.map((ach) => (
+                <div key={ach.id} className="p-5 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D1017] space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider bg-slate-100 dark:bg-white/[0.05] text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                        {ach.category}
+                      </span>
+                      {ach.date_awarded && (
+                        <span className="text-[11px] font-mono text-slate-500">
+                          {ach.date_awarded.split("T")[0]}
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">{ach.title}</h3>
+                    <div className="text-xs font-mono text-slate-500">Issuer: {ach.issuer}</div>
+                    {ach.description && (
+                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                        {ach.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Attributed Contributors */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-white/[0.06] space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                      <span>ATTRIBUTED CONTRIBUTORS ({ach.contributors?.length || 0})</span>
+                      {(team.is_owner || team.is_admin) && (
+                        <button
+                          onClick={() => {
+                            setShowAttributeModal(ach);
+                            setSelectedMemberForAttr(team.members[0]?.talent_profile_id || null);
+                          }}
+                          className="text-cyan-500 hover:underline flex items-center gap-1"
+                        >
+                          <Plus size={11} /> Attribute Member
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {ach.contributors && ach.contributors.length > 0 ? (
+                        ach.contributors.map((c: any) => (
+                          <div key={c.contributor_id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 text-xs">
+                            <span className="font-semibold text-slate-900 dark:text-white">{c.talent_name}</span>
+                            <span className="text-[10px] font-mono text-slate-500">({c.role_in_project})</span>
+                            <span className={`text-[9px] font-mono px-1 rounded ${c.attribution_status === 'accepted' ? 'text-emerald-500 bg-emerald-500/10' : 'text-amber-500 bg-amber-500/10'}`}>
+                              {c.attribution_status}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-500 font-mono italic">No specific members attributed yet.</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Record Team Award Modal */}
+      {showAddTeamAchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg bg-white dark:bg-[#0E131F] rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3">
+              <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                <Award size={15} className="text-cyan-500" />
+                <span>RECORD TEAM ACHIEVEMENT</span>
+              </div>
+              <button onClick={() => setShowAddTeamAchModal(false)} className="text-slate-400 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                const token = localStorage.getItem("token");
+                await fetch(`http://localhost:8000/api/v1/teams/${team.id}/achievements`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                  body: JSON.stringify(teamAchForm)
+                });
+                setShowAddTeamAchModal(false);
+                const achData = await apiRequest<any[]>(`/teams/${team.id}/achievements`);
+                setTeamAchievements(achData || []);
+              } catch (err: any) {
+                alert("Error recording achievement");
+              }
+            }} className="space-y-3 text-xs font-mono">
+              <div>
+                <label className="block text-slate-400 mb-1">ACHIEVEMENT TITLE *</label>
+                <input required placeholder="e.g. NeurIPS Best Demonstration Award" value={teamAchForm.title} onChange={(e) => setTeamAchForm({ ...teamAchForm, title: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#07090E] text-slate-900 dark:text-white outline-none focus:border-cyan-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1">CATEGORY</label>
+                  <select value={teamAchForm.category} onChange={(e) => setTeamAchForm({ ...teamAchForm, category: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#07090E] text-slate-900 dark:text-white outline-none">
+                    <option value="Hackathons">Hackathons</option>
+                    <option value="Technical competitions">Technical competitions</option>
+                    <option value="Awards and recognitions">Awards and recognitions</option>
+                    <option value="Research and publications">Research & publications</option>
+                    <option value="Open-source contributions">Open-source</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">ORGANIZER / ISSUER *</label>
+                  <input required placeholder="e.g. NeurIPS Foundation" value={teamAchForm.issuer} onChange={(e) => setTeamAchForm({ ...teamAchForm, issuer: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#07090E] text-slate-900 dark:text-white outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-slate-400 mb-1">DESCRIPTION</label>
+                <textarea rows={2} placeholder="Summary of this accomplishment..." value={teamAchForm.description} onChange={(e) => setTeamAchForm({ ...teamAchForm, description: e.target.value })} className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#07090E] text-slate-900 dark:text-white outline-none" />
+              </div>
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+                <button type="button" onClick={() => setShowAddTeamAchModal(false)} className="px-4 py-2 rounded-xl text-slate-400 hover:text-white">CANCEL</button>
+                <button type="submit" className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold">SAVE AWARD</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Attribute Member Modal */}
+      {showAttributeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-[#0E131F] rounded-2xl border border-slate-200 dark:border-white/10 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3">
+              <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                <Users size={15} className="text-cyan-500" />
+                <span>ATTRIBUTE CONTRIBUTOR</span>
+              </div>
+              <button onClick={() => setShowAttributeModal(null)} className="text-slate-400 hover:text-white">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (!selectedMemberForAttr) return;
+              try {
+                const token = localStorage.getItem("token");
+                await fetch(`http://localhost:8000/api/v1/teams/${team.id}/achievements/${showAttributeModal.id}/attribute`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                  body: JSON.stringify({ talent_profile_id: selectedMemberForAttr, role_in_project: attrRoleInput })
+                });
+                setShowAttributeModal(null);
+                const achData = await apiRequest<any[]>(`/teams/${team.id}/achievements`);
+                setTeamAchievements(achData || []);
+              } catch (err) {
+                alert("Error attributing contributor");
+              }
+            }} className="space-y-3 text-xs font-mono">
+              <div>
+                <label className="block text-slate-400 mb-1">SELECT TEAM MEMBER</label>
+                <select value={selectedMemberForAttr || ""} onChange={(e) => setSelectedMemberForAttr(Number(e.target.value))} className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#07090E] text-slate-900 dark:text-white outline-none">
+                  {team.members.map((m: any) => (
+                    <option key={m.talent_profile_id} value={m.talent_profile_id}>
+                      {m.name} ({m.role || "Member"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1">ROLE IN THIS ACHIEVEMENT</label>
+                <input required placeholder="e.g. Lead Distributed Architect" value={attrRoleInput} onChange={(e) => setAttrRoleInput(e.target.value)} className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#07090E] text-slate-900 dark:text-white outline-none" />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.06]">
+                <button type="button" onClick={() => setShowAttributeModal(null)} className="px-4 py-2 rounded-xl text-slate-400 hover:text-white">CANCEL</button>
+                <button type="submit" className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold">SEND ATTRIBUTION</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+{/* Invite Member Modal */}
       {showInviteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-lg p-6 rounded-3xl glass-panel border border-slate-200 dark:border-white/10 shadow-2xl space-y-4">

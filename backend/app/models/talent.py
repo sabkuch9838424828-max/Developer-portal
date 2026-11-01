@@ -27,6 +27,9 @@ class TalentProfile(Base):
     contact_preferences = Column(JSON, default=dict)  # {"email": true, "github": "...", "linkedin": "...", "website": "..."}
     is_public = Column(Boolean, default=True)
     profile_photo_url = Column(String(500), nullable=True)
+    cover_image_url = Column(String(500), nullable=True)
+    identity_status = Column(String(50), default="not_started")  # "not_started", "pending", "in_review", "verified", "failed"
+    identity_verified = Column(Boolean, default=False)
     resume_url = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
@@ -35,6 +38,8 @@ class TalentProfile(Base):
     profile_skills = relationship("ProfileSkill", back_populates="talent_profile", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="talent_profile", cascade="all, delete-orphan")
     resumes = relationship("Resume", back_populates="talent_profile", cascade="all, delete-orphan")
+    achievements = relationship("Achievement", back_populates="talent_profile", cascade="all, delete-orphan", order_by="Achievement.order_index")
+    team_attributions = relationship("TeamAchievementContributor", back_populates="talent_profile", cascade="all, delete-orphan")
     matches = relationship("JobMatch", back_populates="talent_profile", cascade="all, delete-orphan")
     applications = relationship("Application", back_populates="talent_profile", cascade="all, delete-orphan")
     invitations = relationship("Invitation", back_populates="talent_profile", cascade="all, delete-orphan")
@@ -48,6 +53,7 @@ class Team(Base):
     name = Column(String(255), nullable=False)
     slug = Column(String(255), unique=True, index=True, nullable=False)
     logo_url = Column(String(500), nullable=True)
+    cover_image_url = Column(String(500), nullable=True)
     description = Column(Text, nullable=True)
     domain = Column(String(100), default="Full-Stack Web")  # "AI / ML", "Distributed Systems", "Mobile Apps", etc.
     project_goals = Column(Text, nullable=True)
@@ -64,6 +70,7 @@ class Team(Base):
     members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
     invitations = relationship("TeamInvitation", back_populates="team", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="team", cascade="all, delete-orphan")
+    achievements = relationship("TeamAchievement", back_populates="team", cascade="all, delete-orphan", order_by="TeamAchievement.order_index")
 
 class TeamMember(Base):
     __tablename__ = "team_members"

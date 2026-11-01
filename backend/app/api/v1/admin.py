@@ -10,6 +10,8 @@ from app.models.job import Job
 from app.models.match import JobMatch
 from app.models.application import Application
 from app.models.ai_log import AIUsageLog, AuditLog
+from app.models.achievement import Achievement
+from app.services.achievement_service import AchievementService
 from app.schemas.notification import AdminStatsResponse, AIStatusResponse
 
 router = APIRouter(prefix="/admin", tags=["Admin Operations"])
@@ -174,3 +176,57 @@ def get_audit_trail(
         }
         for l in logs
     ]
+
+
+# ==========================================
+# MODULE 5: ACHIEVEMENT VERIFICATION REVIEW
+# ==========================================
+
+@router.get("/achievements/pending")
+def get_pending_achievement_reviews(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    pending = db.query(Achievement).filter(
+        Achievement.verification_status == "pending_review"
+    ).order_by(Achievement.updated_at.desc()).all()
+
+    results = []
+    for ach in pending:
+        profile = ach.talent_profile
+        user = profile.user if profile else None
+        serialized = AchievementService.serialize_achievement(ach)
+        serialized["talent_name"] = profile.name if profile else "Unknown"
+        serialized["talent_email"] = user.email if user else ""
+        serialized["talent_headline"] = profile.headline if profile else ""
+        results.append(serialized)
+    return results
+
+@router.post("/achievements/{achievement_id}/review")
+def review_achievement(
+    achievement_id: int,
+    payload: dict,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    decision = payload.get("decision")
+    if decision not in ["verified", "rejected"]:
+        raise HTTPException(status_code=400, detail="Decision must be 'verified' or 'rejected'")
+
+    rejection_reason = payload.get("rejection_reason")
+    review_notes = payload.get("review_notes")
+
+    ach = AchievementService.review_verification(
+        achievement_id=achievement_id,
+        reviewer_id=current_user.id,
+        decision=decision,
+        rejection_reason=rejection_reason,
+        review_notes=review_notes,
+        db=db
+    )
+
+    return {
+        "success": True,
+        "achievement": AchievementService.serialize_achievement(ach),
+        "message": f"Achievement {decision} successfully."
+    }

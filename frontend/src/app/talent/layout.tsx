@@ -16,6 +16,8 @@ import {
   Mail,
   Zap,
   Terminal,
+  Award,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function TalentLayout({ children }: { children: React.ReactNode }) {
@@ -46,6 +48,8 @@ export default function TalentLayout({ children }: { children: React.ReactNode }
     { label: "Discover Members", href: "/talent/members", icon: UserPlus },
     { label: "Skills Portfolio", href: "/talent/skills", icon: Zap },
     { label: "Projects Showcase", href: "/talent/projects", icon: FolderGit2 },
+    { label: "Achievements & Honors", href: "/talent/achievements", icon: Award },
+    { label: "Identity Center", href: "/talent/identity", icon: ShieldCheck, badge: "Trust" },
     { label: "Profile Settings", href: "/talent/profile", icon: User },
   ];
 

@@ -27,7 +27,8 @@ import {
   X,
   Check,
   Lock,
-  Globe
+  Globe,
+  Award
 } from "lucide-react";
 
 interface CandidateMatch {
@@ -58,6 +59,11 @@ interface CandidateMatch {
   resume_visibility?: string;
   resume_filename?: string;
   evidence_count?: number;
+  profile_picture_url?: string;
+  identity_verified?: boolean;
+  identity_status?: string;
+  verified_achievements_count?: number;
+  top_achievements?: Array<{ id: number; title: string; category: string; issuer?: string }>;
 }
 
 export default function CandidateMatchesPage() {
@@ -68,6 +74,8 @@ export default function CandidateMatchesPage() {
   const [job, setJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [filterVerifiedOnly, setFilterVerifiedOnly] = useState(false);
+  const [filterAchievementsOnly, setFilterAchievementsOnly] = useState(false);
 
   // Invitation Modal State
   const [inviteModalCandidate, setInviteModalCandidate] = useState<CandidateMatch | null>(null);
@@ -236,6 +244,36 @@ export default function CandidateMatchesPage() {
         </div>
       )}
 
+      {/* Filter Controls Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#0D1017]">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <SlidersHorizontal size={13} /> Trust Filters:
+          </span>
+          <label className="flex items-center gap-1.5 text-xs font-mono text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={filterVerifiedOnly}
+              onChange={(e) => setFilterVerifiedOnly(e.target.checked)}
+              className="h-3.5 w-3.5 rounded accent-cyan-500 cursor-pointer"
+            />
+            <span>Verified Identity Only</span>
+          </label>
+          <label className="flex items-center gap-1.5 text-xs font-mono text-slate-700 dark:text-slate-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={filterAchievementsOnly}
+              onChange={(e) => setFilterAchievementsOnly(e.target.checked)}
+              className="h-3.5 w-3.5 rounded accent-violet-600 cursor-pointer"
+            />
+            <span>With Verified Achievements</span>
+          </label>
+        </div>
+        <span className="text-xs font-mono text-slate-400">
+          Showing Filtered Candidates
+        </span>
+      </div>
+
       {/* Candidate Matches List */}
       <div className="space-y-4">
         {matches.length === 0 ? (
@@ -249,7 +287,13 @@ export default function CandidateMatchesPage() {
             </p>
           </div>
         ) : (
-          matches.map((m) => {
+          matches
+            .filter((m) => {
+              if (filterVerifiedOnly && !m.identity_verified) return false;
+              if (filterAchievementsOnly && (!m.verified_achievements_count || m.verified_achievements_count <= 0)) return false;
+              return true;
+            })
+            .map((m) => {
             const isEligible = m.eligibility === "eligible";
             const isExpanded = expandedId === m.match_id;
 
@@ -273,12 +317,29 @@ export default function CandidateMatchesPage() {
                         className="h-4 w-4 rounded accent-violet-600 cursor-pointer"
                         title="Select for side-by-side comparison"
                       />
+                      <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-white overflow-hidden shrink-0">
+                        {m.profile_picture_url ? (
+                          <img src={m.profile_picture_url.startsWith("http") ? m.profile_picture_url : `http://localhost:8000${m.profile_picture_url}`} alt={m.name} className="w-full h-full object-cover" />
+                        ) : (
+                          m.name.slice(0, 2).toUpperCase()
+                        )}
+                      </div>
                       <h2 className="text-base font-bold text-slate-900 dark:text-white">
                         {m.name}
                       </h2>
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.06] text-slate-600 dark:text-slate-300 uppercase font-semibold">
                         {m.talent_type}
                       </span>
+                      {m.identity_verified && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-bold border border-cyan-500/20 flex items-center gap-1" title="Government Identity Attested">
+                          <ShieldCheck size={11} /> ID VERIFIED
+                        </span>
+                      )}
+                      {(m.verified_achievements_count || 0) > 0 && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-500/10 text-violet-600 dark:text-violet-400 font-bold border border-violet-500/20 flex items-center gap-1" title="Verified Competitive Achievements">
+                          <Award size={11} /> {m.verified_achievements_count} AWARDS
+                        </span>
+                      )}
                       {m.has_resume && (
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-bold border border-cyan-500/20 flex items-center gap-1">
                           <FileText size={10} /> CV VERIFIED ({m.evidence_count || 0})

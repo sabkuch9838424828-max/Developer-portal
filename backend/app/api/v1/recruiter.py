@@ -11,8 +11,11 @@ from app.models.job import Job, JobSkill
 from app.models.skill import Skill
 from app.models.match import JobMatch
 from app.models.application import Application, Invitation
-from app.models.talent import TalentProfile
+from app.models.talent import TalentProfile, Team
 from app.models.resume import Resume, ResumeExtraction, ResumeAccessLog
+from app.models.achievement import Achievement, TeamAchievement, TeamAchievementContributor
+from app.models.identity import IdentityVerificationRecord
+from app.services.achievement_service import AchievementService
 from app.models.ai_log import AuditLog
 from app.ai.services.skill_normalizer import SkillNormalizerService
 from app.services.resume_service import ResumeIntelligenceService
@@ -167,6 +170,7 @@ def create_job(
         responsibilities=payload.responsibilities,
         additional_requirements=payload.additional_requirements,
         strict_eligibility=payload.strict_eligibility,
+        identity_requirement=payload.identity_requirement or "none",
         status=status_val,
         published_at=pub_time
     )
@@ -226,7 +230,8 @@ def create_job(
         mandatory_skills=m_skills,
         preferred_skills=p_skills,
         match_count=0,
-        application_count=0
+        application_count=0,
+        identity_requirement=job.identity_requirement or "none"
     )
 
 @router.get("/jobs/{job_id}", response_model=JobResponse)
@@ -268,7 +273,8 @@ def get_job_detail(
         mandatory_skills=m_skills,
         preferred_skills=p_skills,
         match_count=m_count,
-        application_count=app_count
+        application_count=app_count,
+        identity_requirement=job.identity_requirement or "none"
     )
 
 @router.post("/jobs/{job_id}/publish")
@@ -357,6 +363,24 @@ def get_job_candidate_matches(
         resume_filename = active_resume.original_filename if active_resume else None
         evidence_count = len(active_resume.extractions[0].skills) if active_resume and active_resume.extractions and active_resume.extractions[0].skills else 0
 
+        # Identity disclosure check
+        id_rec = db.query(IdentityVerificationRecord).filter(
+            IdentityVerificationRecord.user_id == t_user.id
+        ).first()
+        is_id_disclosed = id_rec.disclosed_to_recruiters if id_rec else True
+        is_verified = bool(t_prof.identity_verified) if is_id_disclosed else False
+        id_status = t_prof.identity_status if is_id_disclosed else "hidden"
+
+        # Verified achievements
+        verified_achs = [
+            a for a in t_prof.achievements
+            if a.verification_status == "verified" and a.is_public
+        ]
+        top_achs = [
+            {"id": a.id, "title": a.title, "category": a.category, "issuer": a.issuer}
+            for a in verified_achs[:3]
+        ]
+
         results.append(CandidateMatchCard(
             match_id=m.id,
             talent_profile_id=t_prof.id,
@@ -385,7 +409,12 @@ def get_job_candidate_matches(
             resume_id=resume_id,
             resume_visibility=resume_visibility,
             resume_filename=resume_filename,
-            evidence_count=evidence_count
+            evidence_count=evidence_count,
+            profile_picture_url=t_prof.profile_picture_url or t_user.avatar_url,
+            identity_verified=is_verified,
+            identity_status=id_status,
+            verified_achievements_count=len(verified_achs),
+            top_achievements=top_achs
         ))
     return results
 
@@ -707,3 +736,93 @@ def send_candidate_invitation(
     )
 
     return {"success": True, "message": f"Invitation dispatched to {talent.name}."}
+
+
+# ==========================================
+# MODULE 7: RECRUITER TRUST & ACHIEVEMENT DISCOVERY
+# ==========================================
+
+@router.get("/candidates/{talent_id}/trust-profile")
+def get_candidate_trust_profile(
+    talent_id: int,
+    current_user: User = Depends(require_recruiter),
+    db: Session = Depends(get_db)
+):
+    talent = db.query(TalentProfile).filter(TalentProfile.id == talent_id).first()
+    if not talent:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
+    user = talent.user
+    id_rec = db.query(IdentityVerificationRecord).filter(
+        IdentityVerificationRecord.user_id == user.id
+    ).first()
+
+    disclosed = id_rec.disclosed_to_recruiters if id_rec else True
+
+    # Public individual achievements
+    achievements = db.query(Achievement).filter(
+        Achievement.talent_profile_id == talent.id,
+        Achievement.is_public == True
+    ).all()
+
+    # Public team attributions accepted
+    attributions = db.query(TeamAchievementContributor).filter(
+        TeamAchievementContributor.talent_profile_id == talent.id,
+        TeamAchievementContributor.attribution_status == "accepted"
+    ).all()
+
+    team_ach_data = []
+    for attr in attributions:
+        ach = attr.team_achievement
+        if ach and ach.is_public:
+            team_ach_data.append({
+                "team_name": ach.team.name if ach.team else "Team",
+                "team_logo_url": ach.team.logo_url if ach.team else None,
+                "title": ach.title,
+                "category": ach.category,
+                "issuer": ach.issuer,
+                "role_in_project": attr.role_in_project,
+                "date_awarded": ach.date_awarded.isoformat() if ach.date_awarded else None
+            })
+
+    return {
+        "candidate_id": talent.id,
+        "name": talent.name,
+        "headline": talent.headline,
+        "profile_picture_url": talent.profile_picture_url or user.avatar_url,
+        "identity_verified": bool(talent.identity_verified) if disclosed else False,
+        "identity_status": talent.identity_status if disclosed else "hidden",
+        "verified_at": id_rec.verified_at.isoformat() if id_rec and id_rec.verified_at and disclosed else None,
+        "achievements": [AchievementService.serialize_achievement(a) for a in achievements],
+        "team_achievements": team_ach_data
+    }
+
+@router.get("/teams/{team_id}/trust-profile")
+def get_team_trust_profile(
+    team_id: str,
+    current_user: User = Depends(require_recruiter),
+    db: Session = Depends(get_db)
+):
+    if team_id.isdigit():
+        team = db.query(Team).filter(Team.id == int(team_id)).first()
+    else:
+        team = db.query(Team).filter(Team.slug == team_id).first()
+
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    achievements = AchievementService.get_team_achievements(team.id, db=db)
+
+    # Check how many team members have verified government identities
+    verified_members_count = sum(1 for m in team.members if m.talent_profile and m.talent_profile.identity_verified)
+
+    return {
+        "team_id": team.id,
+        "name": team.name,
+        "slug": team.slug,
+        "logo_url": team.logo_url,
+        "cover_image_url": team.cover_image_url,
+        "total_members": len(team.members),
+        "verified_identity_members_count": verified_members_count,
+        "achievements": [AchievementService.serialize_team_achievement(a) for a in achievements]
+    }

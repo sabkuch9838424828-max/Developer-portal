@@ -46,6 +46,7 @@ export default function CreateJobPage() {
     responsibilities: "",
     additional_requirements: "",
     strict_eligibility: true,
+    identity_requirement: "none",
   });
 
   const [mandatoryInput, setMandatoryInput] = useState("");
@@ -494,6 +495,40 @@ export default function CreateJobPage() {
               onChange={(e) => setFormData({ ...formData, experience_max: parseFloat(e.target.value) })}
               className="w-full accent-violet-600"
             />
+          </div>
+        </div>
+
+        {/* Identity Verification Policy */}
+        <div className="p-4 rounded-xl border border-slate-200/80 dark:border-white/[0.06] bg-slate-50/40 dark:bg-[#121722]/40 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={16} className="text-cyan-500" />
+              <label className="text-xs font-mono font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Government Identity Trust Policy
+              </label>
+            </div>
+            <span className="text-[10px] font-mono text-cyan-500">TRUST ATTESTATION</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {[
+              { id: "none", label: "None Required", desc: "Open to all candidates" },
+              { id: "recommended", label: "Recommended", desc: "Verified talent boosted in match" },
+              { id: "required", label: "Strictly Required", desc: "Mandates verified government ID" },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setFormData({ ...formData, identity_requirement: opt.id })}
+                className={`p-3 rounded-xl border text-left transition ${
+                  formData.identity_requirement === opt.id
+                    ? "border-cyan-500/60 bg-cyan-500/10 text-cyan-400"
+                    : "border-slate-200 dark:border-white/10 hover:border-slate-400 text-slate-400"
+                }`}
+              >
+                <div className="text-xs font-bold font-mono text-slate-900 dark:text-white">{opt.label}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</div>
+              </button>
+            ))}
           </div>
         </div>
 
